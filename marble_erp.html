@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>نظام ERP - رخام وجرانيت</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1a2744;
+    --primary-light: #243460;
+    --accent: #c9a84c;
+    --accent-light: #e8c97a;
+    --bg: #f4f2ee;
+    --surface: #ffffff;
+    --surface2: #faf9f7;
+    --border: rgba(0,0,0,0.1);
+    --text: #1a1a1a;
+    --text2: #5a5a5a;
+    --text3: #8a8a8a;
+    --success: #2d7d4e;
+    --success-bg: #e8f5ee;
+    --danger: #c0392b;
+    --danger-bg: #fdecea;
+    --warning: #b8720a;
+    --warning-bg: #fef3e2;
+    --info: #1565c0;
+    --info-bg: #e3f2fd;
+    --sidebar-w: 240px;
+    --header-h: 60px;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Cairo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--primary);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .logo-mark {
+    width: 40px;
+    height: 40px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 8px;
+  }
+
+  .logo-text { color: #fff; font-size: 15px; font-weight: 700; }
+  .logo-sub { color: rgba(255,255,255,0.5); font-size: 11px; }
+
+  .nav-section {
+    padding: 16px 0 8px;
+  }
+
+  .nav-label {
+    padding: 0 16px 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.35);
+    font-weight: 500;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-right: 3px solid transparent;
+    color: rgba(255,255,255,0.65);
+    font-size: 13.5px;
+  }
+
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  
+  .nav-item.active {
+    background: rgba(201,168,76,0.15);
+    color: var(--accent-light);
+    border-right-color: var(--accent);
+  }
+
+  .nav-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .nav-badge {
+    margin-right: auto;
+    background: var(--danger);
+    color: #fff;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .user-name { color: #fff; font-size: 13px; font-weight: 600; }
+  .user-role { color: rgba(255,255,255,0.45); font-size: 11px; }
+
+  /* ===== MAIN CONTENT ===== */
+  .main {
+    margin-right: var(--sidebar-w);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== TOPBAR ===== */
+  .topbar {
+    position: sticky;
+    top: 0;
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    z-index: 50;
+  }
+
+  .topbar-title { font-size: 17px; font-weight: 700; color: var(--primary); flex: 1; }
+  .topbar-sub { font-size: 12px; color: var(--text3); margin-top: 1px; }
+
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-family: 'Cairo', sans-serif;
+    transition: all 0.15s;
+  }
+
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-light); }
+  .btn-accent { background: var(--accent); color: var(--primary); }
+  .btn-accent:hover { background: var(--accent-light); }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  .notif-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    font-size: 16px;
+  }
+
+  .notif-dot {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--danger);
+    border-radius: 50%;
+    border: 2px solid var(--surface);
+  }
+
+  /* ===== PAGE ===== */
+  .page { padding: 24px; display: none; }
+  .page.active { display: block; }
+
+  /* ===== KPI GRID ===== */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+  }
+
+  .kpi-card.kpi-blue::before { background: #1565c0; }
+  .kpi-card.kpi-green::before { background: #2d7d4e; }
+  .kpi-card.kpi-amber::before { background: #b8720a; }
+  .kpi-card.kpi-red::before { background: #c0392b; }
+
+  .kpi-label { font-size: 12px; color: var(--text3); font-weight: 500; margin-bottom: 6px; }
+  .kpi-value { font-size: 26px; font-weight: 700; color: var(--primary); line-height: 1.2; }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .kpi-trend { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; margin-top: 6px; }
+  .kpi-trend.up { color: var(--success); }
+  .kpi-trend.down { color: var(--danger); }
+  .kpi-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 28px; opacity: 0.12; }
+
+  /* ===== GRID 2 ===== */
+  .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+
+  /* ===== CARD ===== */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .card-title { font-size: 14px; font-weight: 700; color: var(--primary); }
+  .card-subtitle { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .card-body { padding: 18px; }
+
+  /* ===== TABLE ===== */
+  .table-wrap { overflow-x: auto; }
+  
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    background: var(--surface2);
+    padding: 10px 14px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .data-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+
+  /* ===== BADGES ===== */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge-success { background: var(--success-bg); color: var(--success); }
+  .badge-danger { background: var(--danger-bg); color: var(--danger); }
+  .badge-warning { background: var(--warning-bg); color: var(--warning); }
+  .badge-info { background: var(--info-bg); color: var(--info); }
+  .badge-gray { background: #f0ede8; color: #666; }
+
+  /* ===== CHART AREA ===== */
+  .chart-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    height: 140px;
+    padding-top: 10px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar {
+    width: 100%;
+    background: var(--primary);
+    border-radius: 4px 4px 0 0;
+    min-height: 4px;
+    transition: height 0.5s ease;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .bar:hover { background: var(--accent); }
+  .bar-label { font-size: 10px; color: var(--text3); text-align: center; }
+  .bar-val { font-size: 10px; color: var(--text2); font-weight: 600; }
+
+  /* ===== PROGRESS ===== */
+  .progress {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--primary);
+    transition: width 0.5s;
+  }
+
+  /* ===== ACTIVITY ===== */
+  .activity-list { list-style: none; }
+  
+  .activity-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+
+  .activity-text { font-size: 13px; color: var(--text); }
+  .activity-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* ===== FORM ===== */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  
+  label.form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text2);
+  }
+
+  input.form-input, select.form-input, textarea.form-input {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 13px;
+    font-family: 'Cairo', sans-serif;
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+
+  input.form-input:focus, select.form-input:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  /* ===== SEARCH BAR ===== */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    flex: 1;
+    max-width: 320px;
+  }
+
+  .search-bar input {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-family: 'Cairo', sans-serif;
+    flex: 1;
+    color: var(--text);
+    outline: none;
+  }
+
+  /* ===== MINI STAT ===== */
+  .mini-stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  
+  .mini-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mini-stat-icon { font-size: 20px; }
+  .mini-stat-val { font-size: 18px; font-weight: 700; color: var(--primary); }
+  .mini-stat-lbl { font-size: 11px; color: var(--text3); }
+
+  /* ===== ALERT ===== */
+  .alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .alert-warning { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(184,114,10,0.2); }
+  .alert-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(192,57,43,0.2); }
+  .alert-success { background: var(--success-bg); color: var(--success); border: 1px solid rgba(45,125,78,0.2); }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 600px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--primary); }
+  .modal-close { font-size: 20px; cursor: pointer; color: var(--text3); background: none; border: none; }
+  .modal-body { padding: 22px; }
+  .modal-footer { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ===== TABS ===== */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+  
+  .tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+  /* ===== PROJECT CARD ===== */
+  .project-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+
+  .project-card:hover { box-shadow: var(--shadow); }
+
+  .project-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .project-title { font-size: 14px; font-weight: 700; color: var(--primary); }
+  .project-client { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .project-meta { display: flex; gap: 12px; margin-top: 12px; font-size: 12px; color: var(--text3); }
+  .project-meta span { display: flex; align-items: center; gap: 4px; }
+
+  /* ===== INVENTORY LEVEL ===== */
+  .inv-level {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  /* ===== DONUT CHART ===== */
+  .donut-wrap {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto;
+  }
+
+  .donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .donut-center small { font-size: 10px; color: var(--text3); font-weight: 400; }
+
+  /* ===== SCROLLBAR ===== */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* section headers */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .section-title { font-size: 16px; font-weight: 700; color: var(--primary); }
+
+  /* notifications panel */
+  .notif-panel {
+    display: none;
+    position: absolute;
+    top: 48px;
+    left: 0;
+    width: 320px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    z-index: 300;
+    overflow: hidden;
+  }
+
+  .notif-panel.open { display: block; }
+  .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .notif-item:hover { background: var(--surface2); }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-txt { font-size: 13px; color: var(--text); }
+  .notif-tm { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .notif-unread { border-right: 3px solid var(--accent); }
+
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">M</div>
+    <div class="logo-text">نظام إدارة الرخام</div>
+    <div class="logo-sub">Marble & Granite ERP v1.0</div>
+  </div>
+
+  <nav>
+    <div class="nav-section">
+      <div class="nav-label">الرئيسية</div>
+      <div class="nav-item active" onclick="showPage('dashboard')">
+        <span class="nav-icon">⊞</span> لوحة التحكم
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">العمليات</div>
+      <div class="nav-item" onclick="showPage('sales')">
+        <span class="nav-icon">🛍</span> المبيعات
+        <span class="nav-badge">5</span>
+      </div>
+      <div class="nav-item" onclick="showPage('purchases')">
+        <span class="nav-icon">📦</span> المشتريات
+      </div>
+      <div class="nav-item" onclick="showPage('inventory')">
+        <span class="nav-icon">🏪</span> المخازن
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item" onclick="showPage('customers')">
+        <span class="nav-icon">👥</span> العملاء
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">المالية</div>
+      <div class="nav-item" onclick="showPage('accounting')">
+        <span class="nav-icon">💰</span> المحاسبة
+      </div>
+      <div class="nav-item" onclick="showPage('invoices')">
+        <span class="nav-icon">🧾</span> الفواتير
+      </div>
+      <div class="nav-item" onclick="showPage('payments')">
+        <span class="nav-icon">💳</span> المدفوعات
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">إدارة</div>
+      <div class="nav-item" onclick="showPage('projects')">
+        <span class="nav-icon">🏗</span> المشاريع
+      </div>
+      <div class="nav-item" onclick="showPage('reports')">
+        <span class="nav-icon">📊</span> التقارير
+      </div>
+      <div class="nav-item" onclick="showPage('employees')">
+        <span class="nav-icon">👤</span> الموظفون
+      </div>
+      <div class="nav-item" onclick="showPage('settings')">
+        <span class="nav-icon">⚙</span> الإعدادات
+      </div>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar">أح</div>
+      <div>
+        <div class="user-name">أحمد محمد</div>
+        <div class="user-role">مدير النظام</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div>
+      <div class="topbar-title" id="page-title">لوحة التحكم</div>
+      <div class="topbar-sub" id="page-sub">نظرة عامة على أداء الشركة</div>
+    </div>
+    <div class="topbar-actions">
+      <div class="search-bar">
+        <span>🔍</span>
+        <input type="text" placeholder="بحث في النظام...">
+      </div>
+      <div style="position: relative;">
+        <div class="notif-btn" onclick="toggleNotif()">
+          🔔
+          <div class="notif-dot"></div>
+        </div>
+        <div class="notif-panel" id="notif-panel">
+          <div style="padding: 12px 16px; font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--border); color: var(--primary);">الإشعارات (4 جديد)</div>
+          <div class="notif-item notif-unread"><div class="notif-txt">⚠️ تنبيه: مخزون بلاطة بيانكو منخفض جداً</div><div class="notif-tm">قبل 10 دقائق</div></div>
+          <div class="notif-item notif-unread"><div class="notif-txt">✅ تم استلام طلبية المشتريات #1042</div><div class="notif-tm">قبل 45 دقيقة</div></div>
+          <div class="notif-item notif-unread"><div class="notif-txt">💳 دفعة جديدة من عميل النيل للديكور</div><div class="notif-tm">قبل ساعتين</div></div>
+          <div class="notif-item notif-unread"><div class="notif-txt">🏗 مشروع فيلا المعادي: موعد التسليم غداً</div><div class="notif-tm">قبل 3 ساعات</div></div>
+          <div class="notif-item"><div class="notif-txt">📄 تم إنشاء تقرير شهري يوليو</div><div class="notif-tm">أمس</div></div>
+        </div>
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="openModal('invoice-modal')">+ فاتورة جديدة</button>
+    </div>
+  </header>
+
+  <!-- ===== DASHBOARD ===== -->
+  <div class="page active" id="page-dashboard">
+    <div class="alert alert-warning">
+      <span>⚠️</span>
+      <div><strong>تنبيه مخزون:</strong> 3 منتجات وصلت لحد الحد الأدنى — <a href="#" onclick="showPage('inventory')">عرض المخزون</a></div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-blue">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">إجمالي الإيرادات (يوليو)</div>
+        <div class="kpi-value">1,847,500 <small style="font-size:14px">ج.م</small></div>
+        <div class="kpi-trend up">▲ 12.4% من الشهر الماضي</div>
+      </div>
+      <div class="kpi-card kpi-green">
+        <div class="kpi-icon">🛍</div>
+        <div class="kpi-label">الطلبات هذا الشهر</div>
+        <div class="kpi-value">247</div>
+        <div class="kpi-trend up">▲ 8 طلبات جديدة اليوم</div>
+      </div>
+      <div class="kpi-card kpi-amber">
+        <div class="kpi-icon">🏗</div>
+        <div class="kpi-label">المشاريع الجارية</div>
+        <div class="kpi-value">18</div>
+        <div class="kpi-sub">4 مشاريع تنتهي هذا الأسبوع</div>
+      </div>
+      <div class="kpi-card kpi-red">
+        <div class="kpi-icon">💳</div>
+        <div class="kpi-label">الذمم المدينة</div>
+        <div class="kpi-value">324,200 <small style="font-size:14px">ج.م</small></div>
+        <div class="kpi-trend down">▼ 12 فاتورة متأخرة</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Sales Chart -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">المبيعات الشهرية 2025</div>
+            <div class="card-subtitle">بالجنيه المصري</div>
+          </div>
+          <select class="form-input" style="width:auto;font-size:12px;padding:4px 8px;">
+            <option>2025</option><option>2024</option>
+          </select>
+        </div>
+        <div class="card-body">
+          <div class="chart-bars" id="sales-chart"></div>
+          <div style="display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--text3);">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--primary);border-radius:2px;display:inline-block;"></span> المبيعات</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:var(--accent);border-radius:2px;display:inline-block;"></span> الهدف</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Products -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">أعلى المنتجات مبيعاً</div>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+                <span>رخام كريمي مصري</span>
+                <span style="font-weight:600;color:var(--primary);">34%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" style="width:34%;background:#1a2744;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+                <span>جرانيت أسود ألبانيا</span>
+                <span style="font-weight:600;color:var(--primary);">28%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" style="width:28%;background:#c9a84c;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+                <span>رخام ستاتواريو إيطالي</span>
+                <span style="font-weight:600;color:var(--primary);">19%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" style="width:19%;background:#2d7d4e;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+                <span>بورسيلان تركي فاخر</span>
+                <span style="font-weight:600;color:var(--primary);">12%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" style="width:12%;background:#b8720a;"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;">
+                <span>أخرى</span>
+                <span style="font-weight:600;color:var(--primary);">7%</span>
+              </div>
+              <div class="progress"><div class="progress-fill" style="width:7%;background:#aaa;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <!-- Recent Orders -->
+      <div class="card" style="grid-column: span 2;">
+        <div class="card-header">
+          <div class="card-title">آخر الطلبيات</div>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('sales')">عرض الكل</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>رقم الطلب</th><th>العميل</th><th>المنتج</th><th>القيمة</th><th>الحالة</th><th>التاريخ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="font-weight:600;">#ORD-4821</td><td>مجموعة الأهرام للإنشاء</td><td>رخام ستاتواريو × 120م²</td><td>48,600 ج.م</td><td><span class="badge badge-success">مكتمل</span></td><td>26/07/2025</td></tr>
+              <tr><td style="font-weight:600;">#ORD-4820</td><td>ديكور النيل</td><td>جرانيت أسود × 80م²</td><td>24,800 ج.م</td><td><span class="badge badge-warning">قيد التنفيذ</span></td><td>25/07/2025</td></tr>
+              <tr><td style="font-weight:600;">#ORD-4819</td><td>مشروع فيلا الشيخ زايد</td><td>رخام كريمي × 200م²</td><td>62,000 ج.م</td><td><span class="badge badge-info">قيد الشحن</span></td><td>24/07/2025</td></tr>
+              <tr><td style="font-weight:600;">#ORD-4818</td><td>فندق ماريوت القاهرة</td><td>بورسيلان فاخر × 500م²</td><td>175,000 ج.م</td><td><span class="badge badge-success">مكتمل</span></td><td>23/07/2025</td></tr>
+              <tr><td style="font-weight:600;">#ORD-4817</td><td>كمبوند سيتي ستارز</td><td>رخام + جرانيت مشكل</td><td>98,400 ج.م</td><td><span class="badge badge-danger">متأخر</span></td><td>20/07/2025</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Activity -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">سجل الأحداث</div></div>
+        <div class="card-body">
+          <ul class="activity-list">
+            <li class="activity-item"><div class="activity-dot" style="background:#2d7d4e;"></div><div><div class="activity-text">تم إنشاء فاتورة #INV-2891 بقيمة 48,600 ج.م</div><div class="activity-time">أحمد محمد · قبل 15 دقيقة</div></div></li>
+            <li class="activity-item"><div class="activity-dot" style="background:#b8720a;"></div><div><div class="activity-text">تحديث مخزون رخام بيانكو: 45 → 30 م²</div><div class="activity-time">النظام · قبل 40 دقيقة</div></div></li>
+            <li class="activity-item"><div class="activity-dot" style="background:#1565c0;"></div><div><div class="activity-text">تسجيل دخول: محمد خالد (محاسب)</div><div class="activity-time">قبل ساعة</div></div></li>
+            <li class="activity-item"><div class="activity-dot" style="background:#c0392b;"></div><div><div class="activity-text">تنبيه: مخزون بيانكو أقل من الحد الأدنى</div><div class="activity-time">النظام · قبل ساعتين</div></div></li>
+            <li class="activity-item"><div class="activity-dot" style="background:#c9a84c;"></div><div><div class="activity-text">تم استلام طلبية جرانيت من مورد إيطاليا</div><div class="activity-time">علي حسن · قبل 3 ساعات</div></div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SALES PAGE ===== -->
+  <div class="page" id="page-sales">
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="mini-stat-icon">📋</div><div><div class="mini-stat-val">247</div><div class="mini-stat-lbl">طلبيات الشهر</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">✅</div><div><div class="mini-stat-val">198</div><div class="mini-stat-lbl">مكتملة</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">⏳</div><div><div class="mini-stat-val">34</div><div class="mini-stat-lbl">قيد التنفيذ</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">❌</div><div><div class="mini-stat-val">15</div><div class="mini-stat-lbl">ملغية / متأخرة</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">💰</div><div><div class="mini-stat-val">1.84م</div><div class="mini-stat-lbl">الإيرادات ج.م</div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">قائمة الطلبيات</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div class="search-bar" style="max-width:200px;">
+            <span>🔍</span><input type="text" placeholder="بحث...">
+          </div>
+          <select class="form-input" style="width:auto;font-size:12px;">
+            <option>كل الحالات</option>
+            <option>مكتمل</option><option>قيد التنفيذ</option><option>متأخر</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openModal('order-modal')">+ طلبية جديدة</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>رقم الطلب</th><th>العميل</th><th>المنتج / الخدمة</th><th>الكمية</th><th>السعر</th><th>الإجمالي</th><th>نوع الدفع</th><th>الحالة</th><th>التاريخ</th><th>إجراءات</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>#ORD-4821</strong></td><td>مجموعة الأهرام للإنشاء</td><td>رخام ستاتواريو إيطالي</td><td>120 م²</td><td>405 ج.م/م²</td><td>48,600 ج.م</td><td><span class="badge badge-success">كاش</span></td><td><span class="badge badge-success">مكتمل</span></td><td>26/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+            <tr><td><strong>#ORD-4820</strong></td><td>ديكور النيل</td><td>جرانيت أسود ألبانيا</td><td>80 م²</td><td>310 ج.م/م²</td><td>24,800 ج.م</td><td><span class="badge badge-warning">آجل</span></td><td><span class="badge badge-warning">قيد التنفيذ</span></td><td>25/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+            <tr><td><strong>#ORD-4819</strong></td><td>مشروع فيلا الشيخ زايد</td><td>رخام كريمي مصري</td><td>200 م²</td><td>310 ج.م/م²</td><td>62,000 ج.م</td><td><span class="badge badge-info">50% مقدم</span></td><td><span class="badge badge-info">قيد الشحن</span></td><td>24/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+            <tr><td><strong>#ORD-4818</strong></td><td>فندق ماريوت القاهرة</td><td>بورسيلان تركي فاخر</td><td>500 م²</td><td>350 ج.م/م²</td><td>175,000 ج.م</td><td><span class="badge badge-success">كاش</span></td><td><span class="badge badge-success">مكتمل</span></td><td>23/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+            <tr><td><strong>#ORD-4817</strong></td><td>كمبوند سيتي ستارز</td><td>رخام + جرانيت مشكل</td><td>320 م²</td><td>307.5 ج.م/م²</td><td>98,400 ج.م</td><td><span class="badge badge-warning">آجل 30 يوم</span></td><td><span class="badge badge-danger">متأخر</span></td><td>20/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+            <tr><td><strong>#ORD-4816</strong></td><td>شركة الإعمار</td><td>جرانيت رمادي برازيلي</td><td>150 م²</td><td>420 ج.م/م²</td><td>63,000 ج.م</td><td><span class="badge badge-success">كاش</span></td><td><span class="badge badge-success">مكتمل</span></td><td>19/07</td><td><button class="btn btn-ghost btn-sm">عرض</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== INVENTORY PAGE ===== -->
+  <div class="page" id="page-inventory">
+    <div class="alert alert-danger">
+      ⚠️ <strong>3 منتجات</strong> وصلت لمستوى التنبيه — يرجى مراجعة المخزون وإصدار أوامر الشراء
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="kpi-card kpi-blue"><div class="kpi-label">إجمالي الأصناف</div><div class="kpi-value">84</div></div>
+      <div class="kpi-card kpi-green"><div class="kpi-label">قيمة المخزون</div><div class="kpi-value">2.4م <small style="font-size:13px">ج.م</small></div></div>
+      <div class="kpi-card kpi-amber"><div class="kpi-label">حركة اليوم</div><div class="kpi-value">12 صنف</div></div>
+      <div class="kpi-card kpi-red"><div class="kpi-label">تحت الحد الأدنى</div><div class="kpi-value">3 أصناف</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">إدارة المخزون</div>
+        <div style="display:flex;gap:10px;">
+          <select class="form-input" style="width:auto;font-size:12px;">
+            <option>كل الفئات</option><option>رخام</option><option>جرانيت</option><option>بورسيلان</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openModal('product-modal')">+ إضافة صنف</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>الباركود</th><th>الصنف</th><th>الفئة</th><th>المخزون الحالي</th><th>الحد الأدنى</th><th>سعر الشراء</th><th>سعر البيع</th><th>الحالة</th><th>إجراءات</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-family:monospace;font-size:12px;">MG-10021</td><td><strong>رخام ستاتواريو إيطالي</strong></td><td><span class="badge badge-gray">رخام</span></td>
+              <td><div class="inv-level"><div class="progress" style="width:80px;"><div class="progress-fill" style="width:75%;background:#2d7d4e;"></div></div> <strong>150 م²</strong></div></td>
+              <td>50 م²</td><td>280 ج.م</td><td>405 ج.م</td><td><span class="badge badge-success">متاح</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+            <tr>
+              <td style="font-family:monospace;font-size:12px;">MG-10034</td><td><strong>جرانيت أسود ألبانيا</strong></td><td><span class="badge badge-gray">جرانيت</span></td>
+              <td><div class="inv-level"><div class="progress" style="width:80px;"><div class="progress-fill" style="width:40%;background:#b8720a;"></div></div> <strong>80 م²</strong></div></td>
+              <td>60 م²</td><td>200 ج.م</td><td>310 ج.م</td><td><span class="badge badge-warning">منخفض</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+            <tr>
+              <td style="font-family:monospace;font-size:12px;">MG-10015</td><td><strong>رخام بيانكو كرارا</strong></td><td><span class="badge badge-gray">رخام</span></td>
+              <td><div class="inv-level"><div class="progress" style="width:80px;"><div class="progress-fill" style="width:15%;background:#c0392b;"></div></div> <strong>30 م²</strong></div></td>
+              <td>80 م²</td><td>350 ج.م</td><td>520 ج.م</td><td><span class="badge badge-danger">تحت الحد</span></td>
+              <td><button class="btn btn-accent btn-sm">طلب شراء</button></td>
+            </tr>
+            <tr>
+              <td style="font-family:monospace;font-size:12px;">MG-10051</td><td><strong>بورسيلان تركي فاخر 80×80</strong></td><td><span class="badge badge-gray">بورسيلان</span></td>
+              <td><div class="inv-level"><div class="progress" style="width:80px;"><div class="progress-fill" style="width:90%;background:#2d7d4e;"></div></div> <strong>2,400 م²</strong></div></td>
+              <td>300 م²</td><td>180 ج.م</td><td>280 ج.م</td><td><span class="badge badge-success">متاح</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+            <tr>
+              <td style="font-family:monospace;font-size:12px;">MG-10062</td><td><strong>رخام كريمي مصري A+</strong></td><td><span class="badge badge-gray">رخام</span></td>
+              <td><div class="inv-level"><div class="progress" style="width:80px;"><div class="progress-fill" style="width:55%;background:#2d7d4e;"></div></div> <strong>330 م²</strong></div></td>
+              <td>100 م²</td><td>200 ج.م</td><td>310 ج.م</td><td><span class="badge badge-success">متاح</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ACCOUNTING PAGE ===== -->
+  <div class="page" id="page-accounting">
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-green"><div class="kpi-label">إجمالي الإيرادات</div><div class="kpi-value">1,847,500 ج.م</div><div class="kpi-sub">يوليو 2025</div></div>
+      <div class="kpi-card kpi-red"><div class="kpi-label">إجمالي المصروفات</div><div class="kpi-value">1,124,200 ج.م</div></div>
+      <div class="kpi-card kpi-blue"><div class="kpi-label">صافي الربح</div><div class="kpi-value">723,300 ج.م</div><div class="kpi-trend up">▲ هامش 39.1%</div></div>
+      <div class="kpi-card kpi-amber"><div class="kpi-label">الذمم المستحقة</div><div class="kpi-value">324,200 ج.م</div></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab(this, 'acc-tab-transactions')">المعاملات</div>
+      <div class="tab" onclick="switchTab(this, 'acc-tab-receivables')">الذمم المدينة</div>
+      <div class="tab" onclick="switchTab(this, 'acc-tab-payables')">الذمم الدائنة</div>
+      <div class="tab" onclick="switchTab(this, 'acc-tab-chart')">الحسابات</div>
+    </div>
+
+    <div id="acc-tab-transactions" class="tab-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">سجل المعاملات المالية</div>
+          <button class="btn btn-primary btn-sm">+ قيد جديد</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>رقم المعاملة</th><th>النوع</th><th>الوصف</th><th>العملة</th><th>المبلغ</th><th>طريقة الدفع</th><th>التاريخ</th><th>حالة</th></tr></thead>
+            <tbody>
+              <tr><td><strong>#TXN-8841</strong></td><td><span class="badge badge-success">إيراد</span></td><td>فاتورة مبيعات #INV-2891 - مجموعة الأهرام</td><td>ج.م</td><td style="color:var(--success);font-weight:700;">+48,600</td><td>تحويل بنكي</td><td>26/07/2025</td><td><span class="badge badge-success">تم</span></td></tr>
+              <tr><td><strong>#TXN-8840</strong></td><td><span class="badge badge-danger">مصروف</span></td><td>مشتريات جرانيت - مورد إيطاليا SpA</td><td>USD</td><td style="color:var(--danger);font-weight:700;">-12,500</td><td>حوالة بنكية</td><td>25/07/2025</td><td><span class="badge badge-success">تم</span></td></tr>
+              <tr><td><strong>#TXN-8839</strong></td><td><span class="badge badge-success">إيراد</span></td><td>دفعة جزئية - فيلا الشيخ زايد</td><td>ج.م</td><td style="color:var(--success);font-weight:700;">+31,000</td><td>شيك</td><td>24/07/2025</td><td><span class="badge badge-success">تم</span></td></tr>
+              <tr><td><strong>#TXN-8838</strong></td><td><span class="badge badge-danger">مصروف</span></td><td>مرتبات موظفين - يوليو</td><td>ج.م</td><td style="color:var(--danger);font-weight:700;">-85,000</td><td>تحويل بنكي</td><td>23/07/2025</td><td><span class="badge badge-success">تم</span></td></tr>
+              <tr><td><strong>#TXN-8837</strong></td><td><span class="badge badge-success">إيراد</span></td><td>فاتورة ماريوت #INV-2890 كاملة</td><td>ج.م</td><td style="color:var(--success);font-weight:700;">+175,000</td><td>تحويل بنكي</td><td>23/07/2025</td><td><span class="badge badge-success">تم</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="acc-tab-receivables" class="tab-content" style="display:none;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">الذمم المدينة (مستحقة من العملاء)</div></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>العميل</th><th>رقم الفاتورة</th><th>المبلغ الأصلي</th><th>المدفوع</th><th>المتبقي</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr></thead>
+            <tbody>
+              <tr><td>كمبوند سيتي ستارز</td><td>#INV-2887</td><td>98,400</td><td>49,200</td><td style="font-weight:700;color:var(--danger);">49,200</td><td>20/07/2025</td><td><span class="badge badge-danger">متأخر 6 أيام</span></td></tr>
+              <tr><td>ديكور النيل</td><td>#INV-2890</td><td>24,800</td><td>0</td><td style="font-weight:700;color:var(--warning);">24,800</td><td>24/08/2025</td><td><span class="badge badge-info">30 يوم متبقي</span></td></tr>
+              <tr><td>شركة الإعمار</td><td>#INV-2885</td><td>63,000</td><td>63,000</td><td style="font-weight:700;color:var(--success);">0</td><td>19/07/2025</td><td><span class="badge badge-success">مسدد</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="acc-tab-payables" class="tab-content" style="display:none;">
+      <div class="card"><div class="card-header"><div class="card-title">الذمم الدائنة (مستحقة للموردين)</div></div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>المورد</th><th>المبلغ</th><th>العملة</th><th>تاريخ الاستحقاق</th><th>الحالة</th></tr></thead>
+            <tbody>
+              <tr><td>Marble Italia SpA</td><td>12,500</td><td>USD</td><td>10/08/2025</td><td><span class="badge badge-info">مستحق</span></td></tr>
+              <tr><td>الشركة المصرية للمحاجر</td><td>45,000</td><td>ج.م</td><td>05/08/2025</td><td><span class="badge badge-warning">قريب</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="acc-tab-chart" class="tab-content" style="display:none;">
+      <div class="card"><div class="card-body">
+        <p style="color:var(--text2);font-size:14px;">دليل الحسابات (Chart of Accounts) - يمكن توسيعه حسب متطلبات الشركة</p>
+        <table class="data-table" style="margin-top:12px;">
+          <thead><tr><th>رقم الحساب</th><th>اسم الحساب</th><th>النوع</th><th>الرصيد</th></tr></thead>
+          <tbody>
+            <tr><td>1010</td><td>الصندوق</td><td>أصول</td><td>85,400 ج.م</td></tr>
+            <tr><td>1020</td><td>البنك الأهلي</td><td>أصول</td><td>1,240,000 ج.م</td></tr>
+            <tr><td>1200</td><td>المخزون</td><td>أصول</td><td>2,400,000 ج.م</td></tr>
+            <tr><td>2010</td><td>موردون - آجل</td><td>خصوم</td><td>57,500 ج.م</td></tr>
+            <tr><td>4010</td><td>إيرادات المبيعات</td><td>إيرادات</td><td>1,847,500 ج.م</td></tr>
+            <tr><td>5010</td><td>تكلفة البضاعة المباعة</td><td>مصروف</td><td>924,200 ج.م</td></tr>
+            <tr><td>5020</td><td>مرتبات وأجور</td><td>مصروف</td><td>85,000 ج.م</td></tr>
+          </tbody>
+        </table>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- ===== PROJECTS PAGE ===== -->
+  <div class="page" id="page-projects">
+    <div class="section-header">
+      <div>
+        <div class="section-title">إدارة المشاريع</div>
+      </div>
+      <button class="btn btn-primary" onclick="openModal('project-modal')">+ مشروع جديد</button>
+    </div>
+
+    <div class="mini-stats">
+      <div class="mini-stat"><div class="mini-stat-icon">🏗</div><div><div class="mini-stat-val">18</div><div class="mini-stat-lbl">مشاريع جارية</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">✅</div><div><div class="mini-stat-val">47</div><div class="mini-stat-lbl">مشاريع مكتملة</div></div></div>
+      <div class="mini-stat"><div class="mini-stat-icon">⚠️</div><div><div class="mini-stat-val">4</div><div class="mini-stat-lbl">تنتهي هذا الأسبوع</div></div></div>
+    </div>
+
+    <div class="grid-3">
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">فيلا الشيخ زايد - فيلا A3</div>
+            <div class="project-client">عميل: م. خالد السيد</div>
+          </div>
+          <span class="badge badge-warning">جاري</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">65%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:65%;"></div></div></div>
+        <div class="project-meta"><span>📅 تسليم: 02/08/2025</span><span>💰 62,000 ج.م</span><span>👤 3 موظفين</span></div>
+      </div>
+
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">فندق النيل هيلتون - رواق الاستقبال</div>
+            <div class="project-client">عميل: هيلتون مصر</div>
+          </div>
+          <span class="badge badge-danger">متأخر</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">40%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:40%;background:#c0392b;"></div></div></div>
+        <div class="project-meta"><span>📅 تسليم: 20/07 ⚠️</span><span>💰 320,000 ج.م</span><span>👤 8 موظفين</span></div>
+      </div>
+
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">كمبوند الرحاب - وحدات 101-120</div>
+            <div class="project-client">عميل: شركة سيتي ستارز</div>
+          </div>
+          <span class="badge badge-info">جديد</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">10%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:10%;background:#1565c0;"></div></div></div>
+        <div class="project-meta"><span>📅 تسليم: 15/09/2025</span><span>💰 98,400 ج.م</span><span>👤 5 موظفين</span></div>
+      </div>
+
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">مطعم كايرو فيست - أرضيات</div>
+            <div class="project-client">عميل: مجموعة الأغذية</div>
+          </div>
+          <span class="badge badge-success">مكتمل</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">100%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:100%;background:#2d7d4e;"></div></div></div>
+        <div class="project-meta"><span>📅 تم: 18/07/2025</span><span>💰 28,000 ج.م</span><span>👤 2 موظفين</span></div>
+      </div>
+
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">برج الياسمين - لوبي ودرج</div>
+            <div class="project-client">عميل: المقاولون العرب</div>
+          </div>
+          <span class="badge badge-warning">جاري</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">80%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:80%;"></div></div></div>
+        <div class="project-meta"><span>📅 تسليم: 30/07/2025</span><span>💰 155,000 ج.م</span><span>👤 6 موظفين</span></div>
+      </div>
+
+      <div class="project-card">
+        <div class="project-header">
+          <div>
+            <div class="project-title">قصر أفراح النيل - جدران وأرضيات</div>
+            <div class="project-client">عميل: شركة الأفراح</div>
+          </div>
+          <span class="badge badge-warning">جاري</span>
+        </div>
+        <div style="margin:10px 0;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;"><span>التقدم</span><span style="font-weight:600;">50%</span></div>
+        <div class="progress"><div class="progress-fill" style="width:50%;background:#c9a84c;"></div></div></div>
+        <div class="project-meta"><span>📅 تسليم: 10/08/2025</span><span>💰 210,000 ج.م</span><span>👤 7 موظفين</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== REPORTS PAGE ===== -->
+  <div class="page" id="page-reports">
+    <div class="grid-3" style="margin-bottom:24px;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">مؤشرات الأداء الرئيسية</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:14px;">
+          <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span>تحقيق الهدف الشهري</span><span style="font-weight:700;color:var(--success);">92%</span></div><div class="progress"><div class="progress-fill" style="width:92%;background:var(--success);"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span>رضا العملاء</span><span style="font-weight:700;color:var(--primary);">87%</span></div><div class="progress"><div class="progress-fill" style="width:87%;"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span>كفاءة التسليم</span><span style="font-weight:700;color:var(--warning);">74%</span></div><div class="progress"><div class="progress-fill" style="width:74%;background:var(--warning);"></div></div></div>
+          <div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;"><span>هامش الربح الإجمالي</span><span style="font-weight:700;color:var(--success);">39%</span></div><div class="progress"><div class="progress-fill" style="width:39%;background:var(--accent);"></div></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">توزيع الإيرادات حسب الفئة</div></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+              <div style="width:14px;height:14px;background:#1a2744;border-radius:3px;flex-shrink:0;"></div>
+              <span style="flex:1;">رخام</span><strong>45% — 831,375 ج.م</strong>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+              <div style="width:14px;height:14px;background:#c9a84c;border-radius:3px;flex-shrink:0;"></div>
+              <span style="flex:1;">جرانيت</span><strong>30% — 554,250 ج.م</strong>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+              <div style="width:14px;height:14px;background:#2d7d4e;border-radius:3px;flex-shrink:0;"></div>
+              <span style="flex:1;">بورسيلان</span><strong>18% — 332,550 ج.م</strong>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px;">
+              <div style="width:14px;height:14px;background:#aaa;border-radius:3px;flex-shrink:0;"></div>
+              <span style="flex:1;">خدمات / تركيب</span><strong>7% — 129,325 ج.م</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">أفضل العملاء (يوليو)</div></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:28px;height:28px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;">1</div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;">فندق ماريوت القاهرة</div><div style="font-size:11px;color:var(--text3);">175,000 ج.م</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:28px;height:28px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:11px;font-weight:700;flex-shrink:0;">2</div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;">كمبوند سيتي ستارز</div><div style="font-size:11px;color:var(--text3);">98,400 ج.م</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:28px;height:28px;background:#2d7d4e;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;flex-shrink:0;">3</div>
+              <div style="flex:1;"><div style="font-size:13px;font-weight:600;">شركة الإعمار</div><div style="font-size:11px;color:var(--text3);">63,000 ج.م</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">التقارير المتاحة</div>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">📊</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">تقرير المبيعات</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">يومي / أسبوعي / شهري</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">💰</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">القوائم المالية</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">ميزانية، أرباح وخسائر</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">📦</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">تقرير المخزون</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">الحركة والتقييم</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">🏗</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">تقرير المشاريع</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">الأداء والإنجاز</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">👥</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">تقرير العملاء</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">الذمم والتعاملات</div>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;cursor:pointer;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+            <div style="font-size:22px;margin-bottom:8px;">📋</div>
+            <div style="font-size:13px;font-weight:700;color:var(--primary);">سجل الأحداث</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;">Audit Trail كامل</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== EMPLOYEES PAGE ===== -->
+  <div class="page" id="page-employees">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">إدارة الموظفين والصلاحيات</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('employee-modal')">+ موظف جديد</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>الموظف</th><th>الوظيفة</th><th>الدور</th><th>القسم</th><th>آخر دخول</th><th>الحالة</th><th>الصلاحيات</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:var(--primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">أح</div><div><div style="font-weight:600;">أحمد محمد علي</div><div style="font-size:11px;color:var(--text3);">ahmed@marble.com</div></div></div></td>
+              <td>مدير النظام</td>
+              <td><span class="badge badge-danger">Admin</span></td>
+              <td>الإدارة</td><td>الآن</td>
+              <td><span class="badge badge-success">نشط</span></td>
+              <td><button class="btn btn-ghost btn-sm">صلاحيات كاملة</button></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:#2d7d4e;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">مخ</div><div><div style="font-weight:600;">محمد خالد</div><div style="font-size:11px;color:var(--text3);">m.khaled@marble.com</div></div></div></td>
+              <td>محاسب أول</td>
+              <td><span class="badge badge-warning">محاسب</span></td>
+              <td>المحاسبة</td><td>قبل ساعة</td>
+              <td><span class="badge badge-success">نشط</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:#b8720a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">عح</div><div><div style="font-weight:600;">علي حسن</div><div style="font-size:11px;color:var(--text3);">ali@marble.com</div></div></div></td>
+              <td>مسؤول مخازن</td>
+              <td><span class="badge badge-info">موظف</span></td>
+              <td>المخازن</td><td>قبل 3 ساعات</td>
+              <td><span class="badge badge-success">نشط</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+            <tr>
+              <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;background:#c0392b;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;">سع</div><div><div style="font-weight:600;">سارة عمر</div><div style="font-size:11px;color:var(--text3);">sara@marble.com</div></div></div></td>
+              <td>مندوب مبيعات</td>
+              <td><span class="badge badge-info">موظف</span></td>
+              <td>المبيعات</td><td>أمس</td>
+              <td><span class="badge badge-gray">إجازة</span></td>
+              <td><button class="btn btn-ghost btn-sm">تعديل</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CUSTOMERS PAGE ===== -->
+  <div class="page" id="page-customers">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">قاعدة بيانات العملاء</div>
+        <div style="display:flex;gap:10px;">
+          <div class="search-bar"><span>🔍</span><input type="text" placeholder="بحث..."></div>
+          <button class="btn btn-primary btn-sm" onclick="openModal('customer-modal')">+ عميل جديد</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>العميل</th><th>النوع</th><th>الهاتف</th><th>إجمالي الطلبيات</th><th>المدفوع</th><th>المتبقي</th><th>التصنيف</th><th>إجراءات</th></tr></thead>
+          <tbody>
+            <tr><td><strong>فندق ماريوت القاهرة</strong></td><td><span class="badge badge-info">شركة</span></td><td>01000000001</td><td>3 طلبيات</td><td>548,000 ج.م</td><td style="color:var(--success);">0</td><td>⭐⭐⭐⭐⭐</td><td><button class="btn btn-ghost btn-sm">ملف</button></td></tr>
+            <tr><td><strong>كمبوند سيتي ستارز</strong></td><td><span class="badge badge-info">مطور عقاري</span></td><td>01000000002</td><td>5 طلبيات</td><td>49,200 ج.م</td><td style="color:var(--danger);">49,200 ج.م</td><td>⭐⭐⭐⭐</td><td><button class="btn btn-ghost btn-sm">ملف</button></td></tr>
+            <tr><td><strong>مجموعة الأهرام للإنشاء</strong></td><td><span class="badge badge-info">مقاول</span></td><td>01000000003</td><td>8 طلبيات</td><td>312,000 ج.م</td><td style="color:var(--success);">0</td><td>⭐⭐⭐⭐⭐</td><td><button class="btn btn-ghost btn-sm">ملف</button></td></tr>
+            <tr><td><strong>م. خالد السيد (خاص)</strong></td><td><span class="badge badge-gray">أفراد</span></td><td>01000000004</td><td>1 طلبية</td><td>31,000 ج.م</td><td style="color:var(--warning);">31,000 ج.م</td><td>⭐⭐⭐</td><td><button class="btn btn-ghost btn-sm">ملف</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== INVOICES PAGE ===== -->
+  <div class="page" id="page-invoices">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">الفواتير</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('invoice-modal')">+ فاتورة جديدة</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>تاريخ الإصدار</th><th>الاستحقاق</th><th>المبلغ</th><th>العملة</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+          <tbody>
+            <tr><td><strong>#INV-2891</strong></td><td>مجموعة الأهرام</td><td>26/07/2025</td><td>26/08/2025</td><td>48,600</td><td>ج.م</td><td><span class="badge badge-success">مدفوعة</span></td><td><button class="btn btn-ghost btn-sm">طباعة</button></td></tr>
+            <tr><td><strong>#INV-2890</strong></td><td>فندق ماريوت</td><td>23/07/2025</td><td>23/07/2025</td><td>175,000</td><td>ج.م</td><td><span class="badge badge-success">مدفوعة</span></td><td><button class="btn btn-ghost btn-sm">طباعة</button></td></tr>
+            <tr><td><strong>#INV-2889</strong></td><td>فيلا الشيخ زايد</td><td>24/07/2025</td><td>24/08/2025</td><td>62,000</td><td>ج.م</td><td><span class="badge badge-warning">مدفوعة جزئياً</span></td><td><button class="btn btn-ghost btn-sm">طباعة</button></td></tr>
+            <tr><td><strong>#INV-2887</strong></td><td>كمبوند سيتي ستارز</td><td>20/07/2025</td><td>20/07/2025</td><td>98,400</td><td>ج.م</td><td><span class="badge badge-danger">متأخرة</span></td><td><button class="btn btn-ghost btn-sm">تذكير</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PURCHASES, PAYMENTS, SETTINGS - simple stubs -->
+  <div class="page" id="page-purchases"><div class="card"><div class="card-body" style="text-align:center;padding:40px;color:var(--text3);">📦 صفحة المشتريات — يمكن توسيعها بنفس نمط المبيعات</div></div></div>
+  <div class="page" id="page-payments"><div class="card"><div class="card-body" style="text-align:center;padding:40px;color:var(--text3);">💳 سجل المدفوعات — متصل بالمحاسبة والفواتير</div></div></div>
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-header"><div class="card-title">إعدادات النظام</div></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-group"><label class="form-label">اسم الشركة</label><input class="form-input" type="text" value="شركة الرخام والجرانيت المصرية"></div>
+          <div class="form-group"><label class="form-label">العملة الأساسية</label><select class="form-input"><option>جنيه مصري (EGP)</option><option>دولار أمريكي (USD)</option></select></div>
+          <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" type="email" value="info@marble.com"></div>
+          <div class="form-group"><label class="form-label">الهاتف</label><input class="form-input" type="text" value="+20 2 12345678"></div>
+          <div class="form-group full"><label class="form-label">العنوان</label><input class="form-input" type="text" value="المنطقة الصناعية، العاشر من رمضان، مصر"></div>
+        </div>
+        <div style="margin-top:20px;"><button class="btn btn-primary">حفظ الإعدادات</button></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Invoice Modal -->
+<div class="modal-overlay" id="invoice-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">إنشاء فاتورة جديدة</div>
+      <button class="modal-close" onclick="closeModal('invoice-modal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">العميل</label><select class="form-input"><option>فندق ماريوت القاهرة</option><option>مجموعة الأهرام</option><option>كمبوند سيتي ستارز</option></select></div>
+        <div class="form-group"><label class="form-label">تاريخ الاستحقاق</label><input class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">العملة</label><select class="form-input"><option>ج.م (EGP)</option><option>دولار (USD)</option></select></div>
+        <div class="form-group"><label class="form-label">طريقة الدفع</label><select class="form-input"><option>كاش</option><option>آجل 30 يوم</option><option>آجل 60 يوم</option><option>50% مقدم</option></select></div>
+        <div class="form-group full"><label class="form-label">المنتج / الخدمة</label><select class="form-input"><option>رخام ستاتواريو إيطالي</option><option>جرانيت أسود ألبانيا</option><option>رخام كريمي مصري</option></select></div>
+        <div class="form-group"><label class="form-label">الكمية (م²)</label><input class="form-input" type="number" placeholder="0"></div>
+        <div class="form-group"><label class="form-label">السعر لكل م²</label><input class="form-input" type="number" placeholder="0"></div>
+        <div class="form-group full"><label class="form-label">ملاحظات</label><textarea class="form-input" rows="3"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('invoice-modal')">إلغاء</button>
+      <button class="btn btn-primary">إنشاء الفاتورة</button>
+    </div>
+  </div>
+</div>
+
+<!-- Order Modal -->
+<div class="modal-overlay" id="order-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">طلبية مبيعات جديدة</div><button class="modal-close" onclick="closeModal('order-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">العميل</label><select class="form-input"><option>اختر عميل...</option><option>فندق ماريوت</option><option>مجموعة الأهرام</option></select></div>
+        <div class="form-group"><label class="form-label">تاريخ التسليم</label><input class="form-input" type="date"></div>
+        <div class="form-group full"><label class="form-label">المنتج</label><select class="form-input"><option>رخام ستاتواريو — 405 ج.م/م²</option><option>جرانيت أسود — 310 ج.م/م²</option></select></div>
+        <div class="form-group"><label class="form-label">الكمية</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">الخصم %</label><input class="form-input" type="number" value="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('order-modal')">إلغاء</button><button class="btn btn-primary">حفظ الطلبية</button></div>
+  </div>
+</div>
+
+<!-- Product Modal -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">إضافة صنف جديد للمخزون</div><button class="modal-close" onclick="closeModal('product-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">اسم الصنف</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">الفئة</label><select class="form-input"><option>رخام</option><option>جرانيت</option><option>بورسيلان</option></select></div>
+        <div class="form-group"><label class="form-label">الباركود</label><input class="form-input" type="text" placeholder="MG-XXXXX"></div>
+        <div class="form-group"><label class="form-label">الكمية الابتدائية (م²)</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">الحد الأدنى للتنبيه</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">سعر الشراء (ج.م/م²)</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">سعر البيع (ج.م/م²)</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">المورد</label><select class="form-input"><option>Marble Italia SpA</option><option>الشركة المصرية للمحاجر</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('product-modal')">إلغاء</button><button class="btn btn-primary">إضافة الصنف</button></div>
+  </div>
+</div>
+
+<!-- Project Modal -->
+<div class="modal-overlay" id="project-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">مشروع جديد</div><button class="modal-close" onclick="closeModal('project-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-label">اسم المشروع</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">العميل</label><select class="form-input"><option>اختر...</option></select></div>
+        <div class="form-group"><label class="form-label">القيمة الإجمالية</label><input class="form-input" type="number"></div>
+        <div class="form-group"><label class="form-label">تاريخ البدء</label><input class="form-input" type="date"></div>
+        <div class="form-group"><label class="form-label">تاريخ التسليم</label><input class="form-input" type="date"></div>
+        <div class="form-group full"><label class="form-label">الوصف</label><textarea class="form-input" rows="3"></textarea></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('project-modal')">إلغاء</button><button class="btn btn-primary">إنشاء المشروع</button></div>
+  </div>
+</div>
+
+<!-- Employee Modal -->
+<div class="modal-overlay" id="employee-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">إضافة موظف جديد</div><button class="modal-close" onclick="closeModal('employee-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">الاسم الكامل</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" type="email"></div>
+        <div class="form-group"><label class="form-label">كلمة المرور</label><input class="form-input" type="password"></div>
+        <div class="form-group"><label class="form-label">الدور</label><select class="form-input"><option>موظف</option><option>محاسب</option><option>مدير</option></select></div>
+        <div class="form-group"><label class="form-label">القسم</label><select class="form-input"><option>المبيعات</option><option>المخازن</option><option>المحاسبة</option><option>المشاريع</option></select></div>
+        <div class="form-group"><label class="form-label">الهاتف</label><input class="form-input" type="tel"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('employee-modal')">إلغاء</button><button class="btn btn-primary">إنشاء الحساب</button></div>
+  </div>
+</div>
+
+<!-- Customer Modal -->
+<div class="modal-overlay" id="customer-modal">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">عميل جديد</div><button class="modal-close" onclick="closeModal('customer-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">اسم العميل / الشركة</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">نوع العميل</label><select class="form-input"><option>شركة</option><option>مطور عقاري</option><option>مقاول</option><option>أفراد</option></select></div>
+        <div class="form-group"><label class="form-label">الهاتف</label><input class="form-input" type="tel"></div>
+        <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" type="email"></div>
+        <div class="form-group full"><label class="form-label">العنوان</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">الرقم الضريبي</label><input class="form-input" type="text"></div>
+        <div class="form-group"><label class="form-label">حد الائتمان (ج.م)</label><input class="form-input" type="number"></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('customer-modal')">إلغاء</button><button class="btn btn-primary">حفظ العميل</button></div>
+  </div>
+</div>
+
+<script>
+  const pages = {
+    dashboard: { title: 'لوحة التحكم', sub: 'نظرة عامة على أداء الشركة — يوليو 2025' },
+    sales: { title: 'إدارة المبيعات', sub: 'الطلبيات والعروض والعقود' },
+    purchases: { title: 'إدارة المشتريات', sub: 'أوامر الشراء والموردون' },
+    inventory: { title: 'إدارة المخازن', sub: 'المخزون والباركود والحركة' },
+    customers: { title: 'العملاء والموردون', sub: 'قاعدة بيانات العملاء' },
+    accounting: { title: 'المحاسبة والمالية', sub: 'القيود والحسابات والتقارير المالية' },
+    invoices: { title: 'الفواتير', sub: 'إدارة وتتبع الفواتير' },
+    payments: { title: 'المدفوعات', sub: 'سجل الدفعات الواردة والصادرة' },
+    projects: { title: 'إدارة المشاريع', sub: 'تتبع تقدم المشاريع والمهام' },
+    reports: { title: 'التقارير والتحليلات', sub: 'KPIs والتقارير الذكية' },
+    employees: { title: 'إدارة الموظفين', sub: 'الحسابات والصلاحيات وسجل الأحداث' },
+    settings: { title: 'إعدادات النظام', sub: 'إعدادات الشركة والنظام' }
+  };
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const pg = document.getElementById('page-' + id);
+    if (pg) pg.classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => {
+      if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + id + "'")) n.classList.add('active');
+    });
+    const info = pages[id] || {};
+    document.getElementById('page-title').textContent = info.title || '';
+    document.getElementById('page-sub').textContent = info.sub || '';
+    document.getElementById('notif-panel').classList.remove('open');
+  }
+
+  function openModal(id) { document.getElementById(id).classList.add('active'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); });
+  });
+
+  function toggleNotif() {
+    document.getElementById('notif-panel').classList.toggle('open');
+  }
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.notif-btn') && !e.target.closest('.notif-panel')) {
+      document.getElementById('notif-panel').classList.remove('open');
+    }
+  });
+
+  function switchTab(el, contentId) {
+    const tabs = el.parentElement.querySelectorAll('.tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    const parent = el.closest('.page') || document;
+    parent.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    const content = document.getElementById(contentId);
+    if (content) content.style.display = 'block';
+  }
+
+  // Build sales chart
+  function buildChart() {
+    const data = [
+      { m: 'يناير', v: 1200, t: 1500 },
+      { m: 'فبراير', v: 1450, t: 1500 },
+      { m: 'مارس', v: 1100, t: 1600 },
+      { m: 'أبريل', v: 1800, t: 1600 },
+      { m: 'مايو', v: 1650, t: 1700 },
+      { m: 'يونيو', v: 1950, t: 1700 },
+      { m: 'يوليو', v: 1847, t: 2000 },
+    ];
+    const max = 2200;
+    const container = document.getElementById('sales-chart');
+    if (!container) return;
+    container.innerHTML = '';
+    data.forEach(d => {
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      const pct = (d.v / max * 100).toFixed(0);
+      const tpct = (d.t / max * 100).toFixed(0);
+      col.innerHTML = `
+        <div style="font-size:9px;font-weight:600;color:var(--text2);">${Math.round(d.v/100)/10}م</div>
+        <div style="display:flex;gap:2px;align-items:flex-end;width:100%;height:110px;">
+          <div style="flex:1;background:var(--primary);border-radius:3px 3px 0 0;height:${pct}%;"></div>
+          <div style="flex:1;background:var(--accent);opacity:0.5;border-radius:3px 3px 0 0;height:${tpct}%;"></div>
+        </div>
+        <div class="bar-label">${d.m}</div>`;
+      container.appendChild(col);
+    });
+  }
+
+  buildChart();
+</script>
+</body>
+</html>
