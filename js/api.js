@@ -65,30 +65,30 @@ const SEED_DATA = {
     { id: 5, code: 'SLB-005', block_id: 5, block_code: 'BLK-2024-005', type: 'رخام أخضر زمرد',   grade: 'A', width: 240, height: 140, thickness: 2, area_m2: 3.36, status: 'in_stock', cutting_id: 2 },
   ],
   sales: [
-    { id: 1, invoice_number: 'INV-2024-001', customer_id: 1, customer: 'مقاولون مصر للإنشاء',  invoice_date: '2024-02-10', due_date: '2024-03-10', items: [{ product_id: 1, product: 'رخام أبيض كراراني', qty: 50, unit_price: 850, subtotal: 42500 }],                                                                                                                              subtotal: 42500,  tax: 5950,  total_amount: 48450,  paid_amount: 48450, status: 'paid',    notes: '' },
-    { id: 2, invoice_number: 'INV-2024-002', customer_id: 2, customer: 'شركة الإعمار المصرية',  invoice_date: '2024-02-20', due_date: '2024-03-20', items: [{ product_id: 2, product: 'جرانيت أسود مطلق', qty: 100, unit_price: 650, subtotal: 65000 }, { product_id: 4, product: 'جرانيت رمادي صواني', qty: 50, unit_price: 580, subtotal: 29000 }], subtotal: 94000,  tax: 13160, total_amount: 107160, paid_amount: 50000, status: 'partial', notes: '' },
-    { id: 3, invoice_number: 'INV-2024-003', customer_id: 3, customer: 'مشاريع النيل العقارية', invoice_date: '2024-03-05', due_date: '2024-04-05', items: [{ product_id: 5, product: 'رخام أخضر زمرد', qty: 30, unit_price: 1200, subtotal: 36000 }],                                                                                                                             subtotal: 36000,  tax: 5040,  total_amount: 41040,  paid_amount: 0,     status: 'sent',    notes: '' },
-    { id: 4, invoice_number: 'INV-2024-004', customer_id: 4, customer: 'فيلا مودرن للديكور',    invoice_date: '2024-03-10', due_date: '2024-04-10', items: [{ product_id: 1, product: 'رخام أبيض كراراني', qty: 20, unit_price: 850, subtotal: 17000 }],                                                                                                                             subtotal: 17000,  tax: 2380,  total_amount: 19380,  paid_amount: 19380, status: 'paid',    notes: '' },
-    { id: 5, invoice_number: 'INV-2024-005', customer_id: 5, customer: 'مجموعة الهرم للبناء',   invoice_date: '2024-03-15', due_date: '2024-04-15', items: [{ product_id: 3, product: 'رخام بيج تونسي', qty: 80, unit_price: 720, subtotal: 57600 }],                                                                                                                                subtotal: 57600,  tax: 8064,  total_amount: 65664,  paid_amount: 0,     status: 'draft',   notes: '' },
+    { id: 1, invoice_number: 'INV-2024-001', customer_id: 1, customer: 'مقاولون مصر للإنشاء',  invoice_date: '2024-02-10', due_date: '2024-03-10', items: [{ product_id: 1, product: 'رخام أبيض كراراني', qty: 50, unit_price: 850, subtotal: 42500 }],                                                                                                                              subtotal: 42500,  tax: 5950,  total_amount: 48450,  paid_amount: 48450, status: 'paid',    notes: '' , currency: 'EGP', negotiated_price: null },
+    { id: 2, invoice_number: 'INV-2024-002', customer_id: 2, customer: 'شركة الإعمار المصرية',  invoice_date: '2024-02-20', due_date: '2024-03-20', items: [{ product_id: 2, product: 'جرانيت أسود مطلق', qty: 100, unit_price: 650, subtotal: 65000 }, { product_id: 4, product: 'جرانيت رمادي صواني', qty: 50, unit_price: 580, subtotal: 29000 }], subtotal: 94000,  tax: 13160, total_amount: 107160, paid_amount: 50000, status: 'partial', notes: '' , currency: 'EGP', negotiated_price: null },
+    { id: 3, invoice_number: 'INV-2024-003', customer_id: 3, customer: 'مشاريع النيل العقارية', invoice_date: '2024-03-05', due_date: '2024-04-05', items: [{ product_id: 5, product: 'رخام أخضر زمرد', qty: 30, unit_price: 1200, subtotal: 36000 }],                                                                                                                             subtotal: 36000,  tax: 5040,  total_amount: 41040,  paid_amount: 0,     status: 'sent',    notes: '' , currency: 'EGP', negotiated_price: null },
+    { id: 4, invoice_number: 'INV-2024-004', customer_id: 4, customer: 'فيلا مودرن للديكور',    invoice_date: '2024-03-10', due_date: '2024-04-10', items: [{ product_id: 1, product: 'رخام أبيض كراراني', qty: 20, unit_price: 850, subtotal: 17000 }],                                                                                                                             subtotal: 17000,  tax: 2380,  total_amount: 19380,  paid_amount: 19380, status: 'paid',    notes: '' , currency: 'EGP', negotiated_price: null },
+    { id: 5, invoice_number: 'INV-2024-005', customer_id: 5, customer: 'مجموعة الهرم للبناء',   invoice_date: '2024-03-15', due_date: '2024-04-15', items: [{ product_id: 3, product: 'رخام بيج تونسي', qty: 80, unit_price: 720, subtotal: 57600 }],                                                                                                                                subtotal: 57600,  tax: 8064,  total_amount: 65664,  paid_amount: 0,     status: 'draft',   notes: '' , currency: 'EGP', negotiated_price: null },
   ],
   purchases: [
-    { id: 1, invoice_number: 'PUR-2024-001', supplier_id: 1, supplier: 'محاجر سيناء للرخام',      invoice_date: '2024-01-10', due_date: '2024-02-10', items: [{ description: 'بلوك رخام BLK-2024-001', qty: 1, unit_price: 85000, subtotal: 85000 }],                                                                                   total_amount: 85000,  paid_amount: 85000, status: 'paid'    },
-    { id: 2, invoice_number: 'PUR-2024-002', supplier_id: 2, supplier: 'إيطاليا ستون للاستيراد', invoice_date: '2024-02-15', due_date: '2024-03-15', items: [{ description: 'بلوك جرانيت BLK-2024-002', qty: 1, unit_price: 95000, subtotal: 95000 }],                                                                                  total_amount: 95000,  paid_amount: 50000, status: 'partial' },
-    { id: 3, invoice_number: 'PUR-2024-003', supplier_id: 3, supplier: 'محاجر الصعيد',            invoice_date: '2024-03-01', due_date: '2024-04-01', items: [{ description: 'بلوك BLK-2024-003', qty: 1, unit_price: 65000, subtotal: 65000 }, { description: 'بلوك BLK-2024-004', qty: 1, unit_price: 110000, subtotal: 110000 }], total_amount: 175000, paid_amount: 0,     status: 'sent'    },
+    { id: 1, invoice_number: 'PUR-2024-001', supplier_id: 1, supplier: 'محاجر سيناء للرخام',      invoice_date: '2024-01-10', due_date: '2024-02-10', items: [{ description: 'بلوك رخام BLK-2024-001', qty: 1, unit_price: 85000, subtotal: 85000 }],                                                                                   total_amount: 85000,  paid_amount: 85000, status: 'paid'    , currency: 'EGP' },
+    { id: 2, invoice_number: 'PUR-2024-002', supplier_id: 2, supplier: 'إيطاليا ستون للاستيراد', invoice_date: '2024-02-15', due_date: '2024-03-15', items: [{ description: 'بلوك جرانيت BLK-2024-002', qty: 1, unit_price: 95000, subtotal: 95000 }],                                                                                  total_amount: 95000,  paid_amount: 50000, status: 'partial' , currency: 'EGP' },
+    { id: 3, invoice_number: 'PUR-2024-003', supplier_id: 3, supplier: 'محاجر الصعيد',            invoice_date: '2024-03-01', due_date: '2024-04-01', items: [{ description: 'بلوك BLK-2024-003', qty: 1, unit_price: 65000, subtotal: 65000 }, { description: 'بلوك BLK-2024-004', qty: 1, unit_price: 110000, subtotal: 110000 }], total_amount: 175000, paid_amount: 0,     status: 'sent'    , currency: 'EGP' },
   ],
   payments: [
-    { id: 1, type: 'receipt', party_id: 1, party: 'مقاولون مصر للإنشاء',      party_type: 'customer', amount: 48450, date: '2024-02-15', method: 'bank',  reference: 'TRF-001',  notes: 'سداد INV-2024-001' },
-    { id: 2, type: 'receipt', party_id: 2, party: 'شركة الإعمار المصرية',      party_type: 'customer', amount: 50000, date: '2024-03-01', method: 'bank',  reference: 'TRF-002',  notes: 'دفعة جزئية INV-2024-002' },
-    { id: 3, type: 'receipt', party_id: 4, party: 'فيلا مودرن للديكور',        party_type: 'customer', amount: 19380, date: '2024-03-12', method: 'cash',  reference: 'CASH-001', notes: 'سداد INV-2024-004' },
-    { id: 4, type: 'payment', party_id: 1, party: 'محاجر سيناء للرخام',        party_type: 'supplier', amount: 85000, date: '2024-01-20', method: 'bank',  reference: 'PAY-001',  notes: 'سداد PUR-2024-001' },
-    { id: 5, type: 'payment', party_id: 2, party: 'إيطاليا ستون للاستيراد',   party_type: 'supplier', amount: 50000, date: '2024-03-01', method: 'bank',  reference: 'PAY-002',  notes: 'دفعة جزئية PUR-2024-002' },
+    { id: 1, type: 'receipt', party_id: 1, party: 'مقاولون مصر للإنشاء',      party_type: 'customer', amount: 48450, date: '2024-02-15', method: 'bank',  reference: 'TRF-001',  notes: 'سداد INV-2024-001' , currency: 'EGP' },
+    { id: 2, type: 'receipt', party_id: 2, party: 'شركة الإعمار المصرية',      party_type: 'customer', amount: 50000, date: '2024-03-01', method: 'bank',  reference: 'TRF-002',  notes: 'دفعة جزئية INV-2024-002' , currency: 'EGP' },
+    { id: 3, type: 'receipt', party_id: 4, party: 'فيلا مودرن للديكور',        party_type: 'customer', amount: 19380, date: '2024-03-12', method: 'cash',  reference: 'CASH-001', notes: 'سداد INV-2024-004' , currency: 'EGP' },
+    { id: 4, type: 'payment', party_id: 1, party: 'محاجر سيناء للرخام',        party_type: 'supplier', amount: 85000, date: '2024-01-20', method: 'bank',  reference: 'PAY-001',  notes: 'سداد PUR-2024-001' , currency: 'EGP' },
+    { id: 5, type: 'payment', party_id: 2, party: 'إيطاليا ستون للاستيراد',   party_type: 'supplier', amount: 50000, date: '2024-03-01', method: 'bank',  reference: 'PAY-002',  notes: 'دفعة جزئية PUR-2024-002' , currency: 'EGP' },
   ],
   expenses: [
-    { id: 1, category: 'صيانة وإصلاح',    description: 'صيانة ماكينات القطع',           amount: 15000, date: '2024-02-01', project_id: null },
-    { id: 2, category: 'رواتب وأجور',      description: 'رواتب عمال الإنتاج - يناير',   amount: 45000, date: '2024-01-31', project_id: null },
-    { id: 3, category: 'مواد استهلاكية',  description: 'أقراص قطع ومواد صرف',           amount: 8500,  date: '2024-02-10', project_id: 1 },
-    { id: 4, category: 'مرافق',             description: 'فاتورة كهرباء',                 amount: 12000, date: '2024-02-28', project_id: null },
-    { id: 5, category: 'نقل وشحن',         description: 'نقل بضاعة لمشروع النيل',       amount: 5500,  date: '2024-03-05', project_id: 2 },
+    { id: 1, category: 'صيانة وإصلاح',    description: 'صيانة ماكينات القطع',           amount: 15000, date: '2024-02-01', project_id: null , currency: 'EGP' },
+    { id: 2, category: 'رواتب وأجور',      description: 'رواتب عمال الإنتاج - يناير',   amount: 45000, date: '2024-01-31', project_id: null , currency: 'EGP' },
+    { id: 3, category: 'مواد استهلاكية',  description: 'أقراص قطع ومواد صرف',           amount: 8500,  date: '2024-02-10', project_id: 1 , currency: 'EGP' },
+    { id: 4, category: 'مرافق',             description: 'فاتورة كهرباء',                 amount: 12000, date: '2024-02-28', project_id: null , currency: 'EGP' },
+    { id: 5, category: 'نقل وشحن',         description: 'نقل بضاعة لمشروع النيل',       amount: 5500,  date: '2024-03-05', project_id: 2 , currency: 'EGP' },
   ],
   projects: [
     { id: 1, name: 'مشروع تشطيب فيلا الشيخ زايد', customer_id: 4, customer: 'فيلا مودرن للديكور',    start_date: '2024-02-01', end_date: '2024-05-01', budget: 250000,  spent: 85000,  status: 'active',    description: 'تشطيب أرضيات وحوائط بالرخام' },
@@ -149,7 +149,7 @@ const SEED_DATA = {
   shipments: [
     { id: 1, shipment_number: 'SHP-2024-001', invoice_id: 1, invoice_number: 'INV-2024-001', customer: 'مقاولون مصر للإنشاء', ship_type: 'بري', origin: 'المستودع الرئيسي', destination: 'القاهرة - مشروع فيلا الساحل', driver: 'عمرو السائق', vehicle: 'نقل ثقيل - ق ج ن 123', weight_tons: 5.5, bill_of_lading: 'BOL-2024-001', convoy_number: null, receiver: 'مهندس أحمد محمود', shipment_date: '2024-02-12', delivery_date: '2024-02-13', status: 'delivered', currency: 'EGP', exchange_rate: null, products: [{ name: 'رخام أبيض كراراني', qty: 50, unit: 'م²' }], customs_notes: '', notes: 'تم التسليم بسلامة' },
     { id: 2, shipment_number: 'SHP-2024-002', invoice_id: 2, invoice_number: 'INV-2024-002', customer: 'شركة الإعمار المصرية', ship_type: 'بري', origin: 'المستودع الرئيسي', destination: 'الجيزة - برج الإعمار', driver: 'حسن السائق', vehicle: 'نقل ثقيل - ق م ص 456', weight_tons: 12.0, bill_of_lading: 'BOL-2024-002', convoy_number: null, receiver: 'مهندس سامي علي', shipment_date: '2024-02-25', delivery_date: null, status: 'in_transit', currency: 'EGP', exchange_rate: null, products: [{ name: 'جرانيت أسود مطلق', qty: 100, unit: 'م²' }, { name: 'جرانيت رمادي صواني', qty: 50, unit: 'م²' }], customs_notes: '', notes: 'في الطريق' },
-    { id: 3, shipment_number: 'SHP-2024-003', invoice_id: 3, invoice_number: 'INV-2024-003', customer: 'مشاريع النيل العقارية', ship_type: 'بحري', origin: 'المستودع الرئيسي', destination: 'الإسكندرية - كمباوند النيل', driver: 'عمرو السائق', vehicle: 'نقل ثقيل - ق ج ن 123', weight_tons: 3.6, bill_of_lading: null, convoy_number: 'CNV-2024-001', receiver: null, shipment_date: '2024-03-10', delivery_date: null, status: 'ready_to_ship', currency: 'USD', exchange_rate: 31, products: [{ name: 'رخام أخضر زمرد', qty: 30, unit: 'م²' }], customs_notes: 'خاضع لضريبة تصدير 5%', notes: 'في انتظار التحميل' },
+    { id: 3, shipment_number: 'SHP-2024-003', invoice_id: 3, invoice_number: 'INV-2024-003', customer: 'مشاريع النيل العقارية', ship_type: 'بحري', origin: 'المستودع الرئيسي', destination: 'الإسكندرية - كمباوند النيل', driver: 'عمرو السائق', vehicle: 'نقل ثقيل - ق ج ن 123', weight_tons: 3.6, bill_of_lading: null, convoy_number: 'CNV-2024-001', receiver: null, shipment_date: '2024-03-10', delivery_date: null, status: 'ready_to_ship', currency: 'USD', exchange_rate: 31, products: [{ name: 'رخام أخضر زمرد', qty: 30, unit: 'م²' }], customs_notes: 'خاضع لضريبة تصدير 5%', notes: 'في انتظار التحميل' , currency: 'EGP', negotiated_price: null },
   ],
   warehouse_inventory: [
     { id: 1, warehouse_id: 1, product_id: 1, product_code: 'MBL-001', product_name: 'رخام أبيض كراراني', qty: 150, min_qty: 30 },
@@ -200,6 +200,40 @@ const DB = {
       if (!('products'        in s)) { s.products        = [];     shipsMigrated = true; }
     });
     if (shipsMigrated) this.set('shipments', _shipments);
+
+    // Migration: add currency to sales
+    const _sales = this.getAll('sales');
+    let salesMigrated = false;
+    _sales.forEach(s => {
+      if (!('currency'          in s)) { s.currency          = 'EGP'; salesMigrated = true; }
+      if (!('negotiated_price'  in s)) { s.negotiated_price  = null;  salesMigrated = true; }
+    });
+    if (salesMigrated) this.set('sales', _sales);
+
+    // Migration: add currency to purchases
+    const _purchases = this.getAll('purchases');
+    let purMigrated = false;
+    _purchases.forEach(p => {
+      if (!('currency' in p)) { p.currency = 'EGP'; purMigrated = true; }
+    });
+    if (purMigrated) this.set('purchases', _purchases);
+
+    // Migration: add currency to expenses
+    const _expenses = this.getAll('expenses');
+    let expMigrated = false;
+    _expenses.forEach(e => {
+      if (!('currency' in e)) { e.currency = 'EGP'; expMigrated = true; }
+    });
+    if (expMigrated) this.set('expenses', _expenses);
+
+    // Migration: add currency to payments
+    const _payments = this.getAll('payments');
+    let payMigrated = false;
+    _payments.forEach(p => {
+      if (!('currency' in p)) { p.currency = 'EGP'; payMigrated = true; }
+    });
+    if (payMigrated) this.set('payments', _payments);
+
     // Migration: add missing fields to existing users
     const users = this.getAll('users');
     let usersMigrated = false;

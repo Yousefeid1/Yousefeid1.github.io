@@ -10,6 +10,7 @@ async function renderPayments() {
     const { data: payments } = await api.payments();
     window._paymentsCustomers = customers;
     window._paymentsSuppliers = suppliers;
+    window._paymentsData = payments;
 
     const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + p.amount, 0);
     const totalPayments = payments.filter(p => p.type === 'payment').reduce((s, p) => s + p.amount, 0);
@@ -18,6 +19,8 @@ async function renderPayments() {
       <div class="page-header">
         <div><h2>المدفوعات والمقبوضات</h2><p>تتبع التدفق النقدي</p></div>
         <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportPaymentsExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="exportPaymentsPDF()">📄 PDF</button>
           <button class="btn btn-success" onclick="openNewPaymentModal('receipt')">＋ مقبوضات</button>
           <button class="btn btn-danger"  onclick="openNewPaymentModal('payment')">＋ مدفوعات</button>
         </div>
@@ -42,7 +45,7 @@ async function renderPayments() {
         <div class="data-table-wrapper">
           <table>
             <thead><tr>
-              <th>النوع</th><th>الطرف</th><th>المبلغ</th><th>التاريخ</th><th>طريقة الدفع</th><th>المرجع</th><th>ملاحظات</th>
+              <th>النوع</th><th>الطرف</th><th>المبلغ</th><th>التاريخ</th><th>طريقة الدفع</th><th>المرجع</th><th>ملاحظات</th><th>العملة</th>
             </tr></thead>
             <tbody id="pay-tbody">${renderPaymentRows(payments)}</tbody>
           </table>
@@ -55,7 +58,7 @@ async function renderPayments() {
 }
 
 function renderPaymentRows(payments) {
-  if (!payments.length) return `<tr><td colspan="7"><div class="empty-state" style="padding:40px"><div class="empty-icon">💸</div><h3>لا توجد معاملات</h3></div></td></tr>`;
+  if (!payments.length) return `<tr><td colspan="8"><div class="empty-state" style="padding:40px"><div class="empty-icon">💸</div><h3>لا توجد معاملات</h3></div></td></tr>`;
   return payments.map(p => `
     <tr>
       <td>
@@ -69,6 +72,7 @@ function renderPaymentRows(payments) {
       <td>${p.method === 'bank' ? '🏦 تحويل بنكي' : p.method === 'cash' ? '💵 نقدي' : p.method === 'cheque' ? '📄 شيك' : p.method}</td>
       <td class="number">${p.reference || '-'}</td>
       <td class="text-muted">${p.notes || '-'}</td>
+      <td>${p.currency || 'EGP'}</td>
     </tr>
   `).join('');
 }
@@ -145,6 +149,13 @@ async function openNewPaymentModal(type) {
         </select>
       </div>
       <div class="form-group">
+        <label>العملة</label>
+        <select id="np-currency">
+          <option value="EGP">ج.م (EGP)</option>
+          <option value="USD">دولار (USD)</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>رقم المرجع</label>
         <input type="text" id="np-ref" placeholder="رقم الحوالة أو الشيك">
       </div>
@@ -197,6 +208,7 @@ async function savePayment(type, partyType) {
     amount,
     date:         document.getElementById('np-date').value,
     method:       document.getElementById('np-method').value,
+    currency:     document.getElementById('np-currency')?.value || 'EGP',
     reference:    document.getElementById('np-ref').value,
     notes:        document.getElementById('np-notes').value,
     invoice_id:   invoiceId,
@@ -205,4 +217,22 @@ async function savePayment(type, partyType) {
   closeModal();
   toast('تم تسجيل المعاملة بنجاح', 'success');
   renderPayments();
+}
+
+function exportPaymentsPDF() {
+  const payments = window._paymentsData || [];
+  const headers = ['#','النوع','الطرف','المبلغ','العملة','التاريخ','طريقة الدفع','المرجع'];
+  const rows = payments.map((p,i)=>[i+1,p.type==='receipt'?'مقبوض':'مدفوع',(p.party||'').substring(0,18),parseFloat(p.amount||0).toFixed(2),p.currency||'EGP',formatDate(p.date),p.method==='bank'?'بنكي':p.method==='cash'?'نقدي':'شيك',p.reference||'-']);
+  const totalR = payments.filter(p=>p.type==='receipt').reduce((s,p)=>s+(p.amount||0),0);
+  const totalP = payments.filter(p=>p.type==='payment').reduce((s,p)=>s+(p.amount||0),0);
+  exportGenericPDF({ title:'المدفوعات والمقبوضات', subtitle:'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow:['','','الإجمالي','مقبوض: '+totalR.toFixed(2),'','مدفوع: '+totalP.toFixed(2),'صافي: '+(totalR-totalP).toFixed(2),''], filename:`payments-${new Date().toISOString().split('T')[0]}.pdf` });
+}
+
+function exportPaymentsExcel() {
+  const payments = window._paymentsData || [];
+  const headers = ['النوع','الطرف','نوع الطرف','المبلغ','العملة','التاريخ','طريقة الدفع','المرجع','ملاحظات'];
+  const rows = payments.map(p=>[p.type==='receipt'?'مقبوض':'مدفوع',p.party,p.party_type==='customer'?'عميل':'مورد',p.amount||0,p.currency||'EGP',p.date,p.method,p.reference||'-',p.notes||'-']);
+  const totalR = payments.filter(p=>p.type==='receipt').reduce((s,p)=>s+(p.amount||0),0);
+  const totalP = payments.filter(p=>p.type==='payment').reduce((s,p)=>s+(p.amount||0),0);
+  exportGenericExcel({ sheetName:'المدفوعات', headers, rows, totalsRow:['الإجمالي','','','','','','','','مقبوض: '+totalR+' | مدفوع: '+totalP], filename:`payments-${new Date().toISOString().split('T')[0]}.xlsx` });
 }

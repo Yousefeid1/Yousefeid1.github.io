@@ -9,11 +9,16 @@ async function renderPurchases() {
     const suppliers = await api.suppliers();
     const { data: purchases } = await api.purchases();
     window._suppliersData = suppliers;
+    window._purchasesData = purchases;
 
     content.innerHTML = `
       <div class="page-header">
         <div><h2>فواتير الشراء</h2><p>إدارة وتتبع مشتريات المصنع</p></div>
-        <button class="btn btn-primary" onclick="openNewPurchaseModal()">＋ فاتورة شراء جديدة</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportPurchasesExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="exportPurchasesPDF()">📄 PDF</button>
+          <button class="btn btn-primary" onclick="openNewPurchaseModal()">＋ فاتورة شراء جديدة</button>
+        </div>
       </div>
       <div class="filters-bar">
         <input type="text" id="pur-search" placeholder="بحث برقم الفاتورة أو المورد..." oninput="filterPurchases()" style="flex:1">
@@ -30,7 +35,7 @@ async function renderPurchases() {
           <table>
             <thead><tr>
               <th>رقم الفاتورة</th><th>المورد</th><th>التاريخ</th><th>تاريخ الاستحقاق</th>
-              <th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th>
+              <th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>العملة</th><th>الحالة</th>
             </tr></thead>
             <tbody id="pur-tbody">${renderPurchaseRows(purchases)}</tbody>
           </table>
@@ -43,7 +48,7 @@ async function renderPurchases() {
 }
 
 function renderPurchaseRows(purchases) {
-  if (!purchases.length) return `<tr><td colspan="8"><div class="empty-state" style="padding:40px"><div class="empty-icon">🛒</div><h3>لا توجد فواتير شراء</h3></div></td></tr>`;
+  if (!purchases.length) return `<tr><td colspan="9"><div class="empty-state" style="padding:40px"><div class="empty-icon">🛒</div><h3>لا توجد فواتير شراء</h3></div></td></tr>`;
   return purchases.map(p => `
     <tr>
       <td class="number"><strong>${p.invoice_number}</strong></td>
@@ -53,6 +58,7 @@ function renderPurchaseRows(purchases) {
       <td class="number">${formatMoney(p.total_amount)}</td>
       <td class="number text-success">${formatMoney(p.paid_amount)}</td>
       <td class="number ${p.total_amount - p.paid_amount > 0 ? 'text-danger' : 'text-success'}">${formatMoney(p.total_amount - p.paid_amount)}</td>
+      <td>${p.currency || 'EGP'}</td>
       <td>${statusBadge(p.status)}</td>
     </tr>
   `).join('');
@@ -89,6 +95,13 @@ function openNewPurchaseModal() {
         <select id="np-status">
           <option value="sent">مستلمة</option>
           <option value="draft">مسودة</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>العملة</label>
+        <select id="np-currency">
+          <option value="EGP">ج.م (EGP)</option>
+          <option value="USD">دولار (USD)</option>
         </select>
       </div>
     </div>
@@ -151,6 +164,7 @@ async function savePurchase() {
     invoice_date:  document.getElementById('np-date').value,
     due_date:      document.getElementById('np-due').value,
     status:        document.getElementById('np-status').value,
+    currency:      document.getElementById('np-currency')?.value || 'EGP',
     items, total_amount: total, paid_amount: 0,
   });
   closeModal();
@@ -225,4 +239,29 @@ async function saveSupplier() {
   closeModal();
   toast('تم إضافة المورد بنجاح', 'success');
   renderSuppliers();
+}
+
+function exportPurchasesPDF() {
+  const purchases = window._purchasesData || [];
+  const statusLabel = { draft: 'مسودة', sent: 'مستلمة', partial: 'جزئي', paid: 'مسددة' };
+  const headers = ['#', 'رقم الفاتورة', 'المورد', 'التاريخ', 'العملة', 'الإجمالي', 'المدفوع', 'المتبقي', 'الحالة'];
+  const rows = purchases.map((p, i) => {
+    const cur = p.currency || 'EGP';
+    return [i+1, p.invoice_number, (p.supplier||'').substring(0,20), formatDate(p.invoice_date), cur,
+      parseFloat(p.total_amount||0).toFixed(2)+' '+cur, parseFloat(p.paid_amount||0).toFixed(2)+' '+cur,
+      parseFloat((p.total_amount||0)-(p.paid_amount||0)).toFixed(2)+' '+cur, statusLabel[p.status]||p.status];
+  });
+  const total = purchases.reduce((s,p)=>s+(p.total_amount||0),0);
+  const paid  = purchases.reduce((s,p)=>s+(p.paid_amount||0),0);
+  exportGenericPDF({ title: 'فواتير الشراء', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow: ['','الإجمالي','','','',total.toFixed(2)+' EGP',paid.toFixed(2)+' EGP',(total-paid).toFixed(2)+' EGP',''], filename: `purchases-${new Date().toISOString().split('T')[0]}.pdf` });
+}
+
+function exportPurchasesExcel() {
+  const purchases = window._purchasesData || [];
+  const statusLabel = { draft: 'مسودة', sent: 'مستلمة', partial: 'جزئي', paid: 'مسددة' };
+  const headers = ['رقم الفاتورة','المورد','تاريخ الفاتورة','تاريخ الاستحقاق','العملة','الإجمالي','المدفوع','المتبقي','الحالة'];
+  const rows = purchases.map(p=>[p.invoice_number,p.supplier,p.invoice_date,p.due_date||'-',p.currency||'EGP',p.total_amount||0,p.paid_amount||0,(p.total_amount||0)-(p.paid_amount||0),statusLabel[p.status]||p.status]);
+  const total = purchases.reduce((s,p)=>s+(p.total_amount||0),0);
+  const paid  = purchases.reduce((s,p)=>s+(p.paid_amount||0),0);
+  exportGenericExcel({ sheetName:'فواتير الشراء', headers, rows, totalsRow:['الإجمالي','','','','',total,paid,total-paid,''], filename:`purchases-${new Date().toISOString().split('T')[0]}.xlsx` });
 }

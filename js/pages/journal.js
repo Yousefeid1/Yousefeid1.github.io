@@ -9,11 +9,16 @@ async function renderJournal() {
     const accounts = await api.accounts();
     const { data: entries } = await api.journal();
     window._journalAccounts = accounts;
+    window._journalData = entries;
 
     content.innerHTML = `
       <div class="page-header">
         <div><h2>القيود المحاسبية</h2><p>سجل جميع الحركات المالية</p></div>
-        <button class="btn btn-primary" onclick="openNewJournalModal()">＋ قيد جديد</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportJournalExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="exportJournalPDF()">📄 PDF</button>
+          <button class="btn btn-primary" onclick="openNewJournalModal()">＋ قيد جديد</button>
+        </div>
       </div>
       <div class="filters-bar">
         <input type="text" id="je-search" placeholder="بحث في الوصف أو رقم القيد..." oninput="filterJournal()" style="flex:1">
@@ -279,10 +284,13 @@ async function renderTrialBalance() {
   const content = document.getElementById('page-content');
   try {
     const { accounts, total_debit, total_credit } = await api.trialBalance();
+    const totalDebit = total_debit;
+    const totalCredit = total_credit;
+    window._trialBalanceData = { accounts, total_debit, total_credit };
     const typeNames = { asset: 'أصول', liability: 'خصوم', equity: 'حقوق ملكية', revenue: 'إيرادات', expense: 'مصروفات' };
 
     content.innerHTML = `
-      <div class="page-header"><div><h2>ميزان المراجعة</h2><p>مراجعة أرصدة جميع الحسابات</p></div></div>
+      <div class="page-header"><div><h2>ميزان المراجعة</h2><p>مراجعة أرصدة جميع الحسابات</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportTrialBalanceExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportTrialBalancePDF()">📄 PDF</button></div></div>
       <div class="report-summary">
         <div class="summary-box profit"><div class="label">إجمالي المدين</div><div class="value">${formatMoney(total_debit)}</div></div>
         <div class="summary-box loss"><div class="label">إجمالي الدائن</div><div class="value">${formatMoney(total_credit)}</div></div>
@@ -324,4 +332,48 @@ async function renderTrialBalance() {
   } catch (e) {
     content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
   }
+}
+
+// ===== EXPORT: JOURNAL =====
+function exportJournalPDF() {
+  const entries = window._journalData || [];
+  const headers = ['#','رقم القيد','التاريخ','الوصف','المدين','الدائن'];
+  const rows = entries.map((e,i)=>{
+    const debit  = e.lines.reduce((s,l)=>s+l.debit,0);
+    const credit = e.lines.reduce((s,l)=>s+l.credit,0);
+    return [i+1,e.number,formatDate(e.date),(e.description||'').substring(0,30),debit.toFixed(2)+' EGP',credit.toFixed(2)+' EGP'];
+  });
+  const totalD = entries.reduce((s,e)=>s+e.lines.reduce((ss,l)=>ss+l.debit,0),0);
+  const totalC = entries.reduce((s,e)=>s+e.lines.reduce((ss,l)=>ss+l.credit,0),0);
+  exportGenericPDF({ title:'القيود المحاسبية', subtitle:'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow:['','','','الإجمالي',totalD.toFixed(2)+' EGP',totalC.toFixed(2)+' EGP'], filename:`journal-${new Date().toISOString().split('T')[0]}.pdf`, orientation:'portrait' });
+}
+function exportJournalExcel() {
+  const entries = window._journalData || [];
+  const headers = ['رقم القيد','التاريخ','الوصف','المدين (EGP)','الدائن (EGP)'];
+  const rows = entries.map(e=>{
+    const debit  = e.lines.reduce((s,l)=>s+l.debit,0);
+    const credit = e.lines.reduce((s,l)=>s+l.credit,0);
+    return [e.number,e.date,e.description,debit,credit];
+  });
+  const totalD = entries.reduce((s,e)=>s+e.lines.reduce((ss,l)=>ss+l.debit,0),0);
+  const totalC = entries.reduce((s,e)=>s+e.lines.reduce((ss,l)=>ss+l.credit,0),0);
+  exportGenericExcel({ sheetName:'القيود المحاسبية', headers, rows, totalsRow:['الإجمالي','','',totalD,totalC], filename:`journal-${new Date().toISOString().split('T')[0]}.xlsx` });
+}
+
+// ===== EXPORT: TRIAL BALANCE =====
+function exportTrialBalancePDF() {
+  const d = window._trialBalanceData;
+  if (!d) { toast('لا توجد بيانات', 'error'); return; }
+  const headers = ['كود الحساب','اسم الحساب','النوع','مدين','دائن'];
+  const typeMap = { asset:'أصل', liability:'خصم', equity:'حقوق ملكية', revenue:'إيراد', expense:'مصروف' };
+  const rows = d.accounts.map(a=>[a.code,a.name,typeMap[a.type]||a.type,['asset','expense'].includes(a.type)?parseFloat(a.balance).toFixed(2)+' EGP':'-',['liability','equity','revenue'].includes(a.type)?parseFloat(a.balance).toFixed(2)+' EGP':'-']);
+  exportGenericPDF({ title:'ميزان المراجعة', subtitle:'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow:['','','الإجمالي',d.total_debit.toFixed(2)+' EGP',d.total_credit.toFixed(2)+' EGP'], filename:`trial-balance-${new Date().toISOString().split('T')[0]}.pdf`, orientation:'portrait' });
+}
+function exportTrialBalanceExcel() {
+  const d = window._trialBalanceData;
+  if (!d) { toast('لا توجد بيانات', 'error'); return; }
+  const typeMap = { asset:'أصل', liability:'خصم', equity:'حقوق ملكية', revenue:'إيراد', expense:'مصروف' };
+  const headers = ['كود الحساب','اسم الحساب','النوع','مدين (EGP)','دائن (EGP)'];
+  const rows = d.accounts.map(a=>[a.code,a.name,typeMap[a.type]||a.type,['asset','expense'].includes(a.type)?a.balance:0,['liability','equity','revenue'].includes(a.type)?a.balance:0]);
+  exportGenericExcel({ sheetName:'ميزان المراجعة', headers, rows, totalsRow:['','','الإجمالي',d.total_debit,d.total_credit], filename:`trial-balance-${new Date().toISOString().split('T')[0]}.xlsx` });
 }

@@ -46,6 +46,8 @@ async function renderSales() {
               <th>الإجمالي</th>
               <th>المدفوع</th>
               <th>المتبقي</th>
+              <th>العملة</th>
+              <th>السعر التفاوضي</th>
               <th>الحالة</th>
               <th>إجراءات</th>
             </tr></thead>
@@ -74,7 +76,7 @@ function getDueDateClass(sale) {
 }
 
 function renderSalesRows(sales) {
-  if (!sales.length) return `<tr><td colspan="9"><div class="empty-state" style="padding:40px"><div class="empty-icon">🧾</div><h3>لا توجد فواتير</h3></div></td></tr>`;
+  if (!sales.length) return `<tr><td colspan="11"><div class="empty-state" style="padding:40px"><div class="empty-icon">🧾</div><h3>لا توجد فواتير</h3></div></td></tr>`;
   const canChangeStatus = canUserChangeInvoiceStatus();
   return sales.map(s => `
     <tr>
@@ -82,9 +84,11 @@ function renderSalesRows(sales) {
       <td>${s.customer}</td>
       <td>${formatDate(s.invoice_date)}</td>
       <td class="${getDueDateClass(s)}">${formatDate(s.due_date)}</td>
-      <td class="number">${formatMoney(s.total_amount)}</td>
-      <td class="number text-success">${formatMoney(s.paid_amount)}</td>
-      <td class="number ${s.total_amount - s.paid_amount > 0 ? 'text-danger' : 'text-success'}">${formatMoney(s.total_amount - s.paid_amount)}</td>
+      <td class="number">${formatMoney(s.total_amount, s.currency || 'EGP')}</td>
+      <td class="number text-success">${formatMoney(s.paid_amount, s.currency || 'EGP')}</td>
+      <td class="number ${s.total_amount - s.paid_amount > 0 ? 'text-danger' : 'text-success'}">${formatMoney(s.total_amount - s.paid_amount, s.currency || 'EGP')}</td>
+      <td>${s.currency || 'EGP'}</td>
+      <td class="number">${s.negotiated_price ? formatMoney(s.negotiated_price, s.currency || 'EGP') : '-'}</td>
       <td>${statusBadge(s.status)}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" onclick="viewSaleDetail(${s.id})">عرض</button>
@@ -175,6 +179,9 @@ async function viewSaleDetail(id) {
       <div><span class="text-muted">تاريخ الفاتورة:</span> <strong>${formatDate(s.invoice_date)}</strong></div>
       <div><span class="text-muted">تاريخ الاستحقاق:</span> <strong>${formatDate(s.due_date)}</strong></div>
       <div><span class="text-muted">الحالة:</span> ${statusBadge(s.status)}</div>
+      <div><span class="text-muted">العملة:</span> <strong>${s.currency || 'EGP'}</strong></div>
+      ${s.negotiated_price ? `<div><span class="text-muted">السعر التفاوضي:</span> <strong style="color:var(--accent)">${formatMoney(s.negotiated_price, s.currency || 'EGP')}</strong></div>` : ''}
+      ${s.negotiated_price ? `<div><span class="text-muted">الفرق:</span> <strong class="text-danger">${formatMoney(s.total_amount - s.negotiated_price, s.currency || 'EGP')}</strong></div>` : ''}
     </div>
     <div class="data-table-wrapper" style="margin-bottom:16px">
       <table>
@@ -219,6 +226,13 @@ function openNewSaleModal() {
           <option value="sent">مرسلة</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>العملة</label>
+        <select id="ns-currency">
+          <option value="EGP">ج.م (EGP)</option>
+          <option value="USD">دولار (USD)</option>
+        </select>
+      </div>
     </div>
     <hr class="divider">
     <div id="ns-items">
@@ -235,6 +249,10 @@ function openNewSaleModal() {
       <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span>الضريبة (14%):</span><strong id="ns-tax">0.00 EGP</strong></div>
       <div style="display:flex;justify-content:space-between"><span>الإجمالي:</span><strong id="ns-total" style="color:var(--accent)">0.00 EGP</strong></div>
     </div>
+    ${isManager() ? `<div class="form-group form-full" style="margin-top:8px">
+      <label>السعر التفاوضي (للمدير فقط - اختياري)</label>
+      <input type="number" id="ns-negotiated-price" placeholder="اتركه فارغاً لاستخدام السعر الأساسي" min="0">
+    </div>` : ''}
     <div style="margin-top:16px;text-align:left">
       <button class="btn btn-primary" onclick="saveSale()">💾 حفظ الفاتورة</button>
     </div>
@@ -294,6 +312,10 @@ async function saveSale() {
     invoice_date:  document.getElementById('ns-date').value,
     due_date:      document.getElementById('ns-due').value,
     status:        document.getElementById('ns-status').value,
+    currency:      document.getElementById('ns-currency')?.value || 'EGP',
+    negotiated_price: isManager() && document.getElementById('ns-negotiated-price')?.value
+      ? parseFloat(document.getElementById('ns-negotiated-price').value)
+      : null,
     items, subtotal, tax, total_amount: subtotal + tax, paid_amount: 0,
   });
   closeModal();
@@ -422,77 +444,51 @@ async function renderAging() {
 function exportSalesPDF() {
   const sales = window._salesData || [];
   if (!sales.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
-  if (typeof window.jspdf === 'undefined') { toast('مكتبة PDF غير محملة بعد، حاول مجدداً', 'error'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  doc.setFontSize(16);
-  doc.text('فواتير المبيعات - نظام ERP الرخام والجرانيت', 148, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`, 148, 22, { align: 'center' });
-
   const statusLabel = { draft: 'مسودة', sent: 'مرسلة', partial: 'جزئي', paid: 'مسددة', cancelled: 'ملغاة', rejected: 'مرفوضة' };
-  let y = 32;
-  const cols = [15, 50, 90, 130, 155, 185, 215, 245, 265];
-  const headers = ['#', 'رقم الفاتورة', 'العميل', 'التاريخ', 'الإجمالي', 'المدفوع', 'المتبقي', 'الحالة'];
-
-  doc.setFillColor(40, 40, 40);
-  doc.rect(10, y - 5, 277, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  headers.forEach((h, i) => doc.text(h, cols[i], y));
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  sales.forEach((s, idx) => {
-    if (y > 185) { doc.addPage(); y = 20; }
-    const row = [
-      String(idx + 1),
+  const headers = ['#', 'رقم الفاتورة', 'العميل', 'التاريخ', 'العملة', 'الإجمالي', 'السعر التفاوضي', 'المدفوع', 'المتبقي', 'الحالة'];
+  const rows = sales.map((s, i) => {
+    const cur = s.currency || 'EGP';
+    return [
+      i + 1,
       s.invoice_number,
-      (s.customer || '').substring(0, 22),
+      (s.customer || '').substring(0, 20),
       formatDate(s.invoice_date),
-      String(parseFloat(s.total_amount || 0).toFixed(2)),
-      String(parseFloat(s.paid_amount || 0).toFixed(2)),
-      String(parseFloat((s.total_amount || 0) - (s.paid_amount || 0)).toFixed(2)),
+      cur,
+      parseFloat(s.total_amount || 0).toFixed(2) + ' ' + cur,
+      s.negotiated_price ? parseFloat(s.negotiated_price).toFixed(2) + ' ' + cur : '-',
+      parseFloat(s.paid_amount || 0).toFixed(2) + ' ' + cur,
+      parseFloat((s.total_amount || 0) - (s.paid_amount || 0)).toFixed(2) + ' ' + cur,
       statusLabel[s.status] || s.status,
     ];
-    doc.setFontSize(8);
-    row.forEach((cell, i) => doc.text(cell, cols[i], y));
-    y += 7;
   });
-
-  doc.save(`sales-${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('تم تصدير PDF بنجاح', 'success');
+  const totalAmt = sales.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalPaid = sales.reduce((s, i) => s + (i.paid_amount || 0), 0);
+  const totalsRow = ['', 'الإجمالي', '', '', '', totalAmt.toFixed(2) + ' EGP', '', totalPaid.toFixed(2) + ' EGP', (totalAmt - totalPaid).toFixed(2) + ' EGP', ''];
+  exportGenericPDF({ title: 'فواتير المبيعات', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow, filename: `sales-${new Date().toISOString().split('T')[0]}.pdf` });
 }
 
 // ===== EXPORT: SALES EXCEL =====
 function exportSalesExcel() {
   const sales = window._salesData || [];
   if (!sales.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
-  if (typeof XLSX === 'undefined') { toast('مكتبة Excel غير محملة بعد', 'error'); return; }
-
+  if (typeof XLSX === 'undefined') { toast('مكتبة Excel غير محملة', 'error'); return; }
   const statusLabel = { draft: 'مسودة', sent: 'مرسلة', partial: 'جزئي', paid: 'مسددة', cancelled: 'ملغاة', rejected: 'مرفوضة' };
-  const settings = DB.get('settings') || {};
-  const rate = settings.exchange_rate || 1;
-
-  const rows = sales.map(s => ({
-    'رقم الفاتورة':          s.invoice_number,
-    'العميل':                s.customer,
-    'تاريخ الفاتورة':        s.invoice_date,
-    'تاريخ الاستحقاق':       s.due_date || '-',
-    'الإجمالي (EGP)':        s.total_amount || 0,
-    'الإجمالي (USD)':        rate > 0 ? +((s.total_amount || 0) / rate).toFixed(2) : '-',
-    'المدفوع (EGP)':         s.paid_amount || 0,
-    'المتبقي (EGP)':         (s.total_amount || 0) - (s.paid_amount || 0),
-    'الحالة':                statusLabel[s.status] || s.status,
-    'ملاحظات':               s.notes || '-',
-  }));
-
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = Object.keys(rows[0]).map(() => ({ wch: 20 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'فواتير المبيعات');
-  XLSX.writeFile(wb, `sales-${new Date().toISOString().split('T')[0]}.xlsx`);
-  toast('تم تصدير Excel بنجاح', 'success');
+  const headers = ['رقم الفاتورة', 'العميل', 'تاريخ الفاتورة', 'تاريخ الاستحقاق', 'العملة', 'الإجمالي', 'السعر التفاوضي', 'المدفوع', 'المتبقي', 'الحالة', 'ملاحظات'];
+  const rows = sales.map(s => [
+    s.invoice_number,
+    s.customer,
+    s.invoice_date,
+    s.due_date || '-',
+    s.currency || 'EGP',
+    s.total_amount || 0,
+    s.negotiated_price || '',
+    s.paid_amount || 0,
+    (s.total_amount || 0) - (s.paid_amount || 0),
+    statusLabel[s.status] || s.status,
+    s.notes || '-',
+  ]);
+  const totalAmt = sales.reduce((s, i) => s + (i.total_amount || 0), 0);
+  const totalPaid = sales.reduce((s, i) => s + (i.paid_amount || 0), 0);
+  const totalsRow = ['الإجمالي', '', '', '', '', totalAmt, '', totalPaid, totalAmt - totalPaid, '', ''];
+  exportGenericExcel({ sheetName: 'فواتير المبيعات', headers, rows, totalsRow, filename: `sales-${new Date().toISOString().split('T')[0]}.xlsx` });
 }

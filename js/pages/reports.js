@@ -7,11 +7,12 @@ async function renderReportPL() {
   const content = document.getElementById('page-content');
   try {
     const r = await api.reportPL();
+    window._plData = r;
     const grossMargin = r.revenue > 0 ? (r.gross_profit / r.revenue * 100).toFixed(1) : 0;
     const netMargin   = r.revenue > 0 ? (r.net_profit   / r.revenue * 100).toFixed(1) : 0;
 
     content.innerHTML = `
-      <div class="page-header"><div><h2>تقرير الأرباح والخسائر</h2><p>نتائج الأعمال التشغيلية</p></div></div>
+      <div class="page-header"><div><h2>تقرير الأرباح والخسائر</h2><p>نتائج الأعمال التشغيلية</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportPLExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportPLPDF()">📄 PDF</button></div></div>
 
       <div class="report-summary">
         <div class="summary-box gold">   <div class="label">الإيرادات</div>              <div class="value">${formatMoney(r.revenue)}</div></div>
@@ -73,6 +74,7 @@ async function renderReportBS() {
   const content = document.getElementById('page-content');
   try {
     const { total_assets, total_liabilities, total_equity, accounts } = await api.reportBS();
+    window._bsData = { total_assets, total_liabilities, total_equity, accounts };
     const typeNames = { asset: 'الأصول', liability: 'الخصوم', equity: 'حقوق الملكية' };
 
     const renderGroup = (type) => {
@@ -81,7 +83,7 @@ async function renderReportBS() {
     };
 
     content.innerHTML = `
-      <div class="page-header"><div><h2>الميزانية العمومية</h2><p>المركز المالي للشركة</p></div></div>
+      <div class="page-header"><div><h2>الميزانية العمومية</h2><p>المركز المالي للشركة</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportBSExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportBSPDF()">📄 PDF</button></div></div>
 
       <div class="report-summary">
         <div class="summary-box gold">  <div class="label">إجمالي الأصول</div>       <div class="value">${formatMoney(total_assets)}</div></div>
@@ -138,9 +140,10 @@ async function renderReportWaste() {
   const content = document.getElementById('page-content');
   try {
     const r = await api.reportWaste();
+    window._wasteData = r;
 
     content.innerHTML = `
-      <div class="page-header"><div><h2>تقرير الهالك</h2><p>تحليل نسبة الهالك في عمليات القطع</p></div></div>
+      <div class="page-header"><div><h2>تقرير الهالك</h2><p>تحليل نسبة الهالك في عمليات القطع</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportWasteExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportWastePDF()">📄 PDF</button></div></div>
       <div class="report-summary">
         <div class="summary-box gold">  <div class="label">إجمالي الدفعات</div>          <div class="value">${r.total_batches}</div></div>
         <div class="summary-box profit"><div class="label">إجمالي الألواح المنتجة</div>  <div class="value">${r.total_slabs}</div></div>
