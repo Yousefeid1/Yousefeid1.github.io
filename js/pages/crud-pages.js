@@ -7,10 +7,15 @@ async function renderProducts() {
   const content = document.getElementById('page-content');
   try {
     const products = await api.products();
+    window._productsData = products;
     content.innerHTML = `
       <div class="page-header">
         <div><h2>المنتجات</h2><p>إدارة كتالوج المنتجات والمخزون</p></div>
-        <button class="btn btn-primary" onclick="openNewProductModal()">＋ منتج جديد</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportProductsExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="exportProductsPDF()">📄 PDF</button>
+          <button class="btn btn-primary" onclick="openNewProductModal()">＋ منتج جديد</button>
+        </div>
       </div>
       <div class="filters-bar">
         <input type="text" id="prod-search" placeholder="بحث بالاسم أو الكود..." oninput="filterProducts()" style="flex:1">
@@ -229,6 +234,7 @@ async function renderExpenses() {
     const projects = await api.projects();
     const { data: expenses } = await api.expenses();
     window._expProjects = projects;
+    window._expensesData = expenses;
 
     const total  = expenses.reduce((s, e) => s + e.amount, 0);
     const groups = {};
@@ -237,7 +243,11 @@ async function renderExpenses() {
     content.innerHTML = `
       <div class="page-header">
         <div><h2>المصروفات</h2><p>تتبع مصروفات التشغيل</p></div>
-        <button class="btn btn-primary" onclick="openNewExpenseModal()">＋ مصروف جديد</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportExpensesExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="exportExpensesPDF()">📄 PDF</button>
+          <button class="btn btn-primary" onclick="openNewExpenseModal()">＋ مصروف جديد</button>
+        </div>
       </div>
       <div class="report-summary">
         <div class="summary-box loss"><div class="label">إجمالي المصروفات</div><div class="value">${formatMoney(total)}</div></div>
@@ -249,7 +259,7 @@ async function renderExpenses() {
       <div class="card" style="padding:0">
         <div class="data-table-wrapper">
           <table>
-            <thead><tr><th>الفئة</th><th>الوصف</th><th>المبلغ</th><th>التاريخ</th><th>المشروع</th></tr></thead>
+            <thead><tr><th>الفئة</th><th>الوصف</th><th>المبلغ</th><th>التاريخ</th><th>المشروع</th><th>العملة</th></tr></thead>
             <tbody id="exp-tbody">${renderExpenseRows(expenses, projects)}</tbody>
           </table>
         </div>
@@ -261,7 +271,7 @@ async function renderExpenses() {
 }
 
 function renderExpenseRows(expenses, projects) {
-  if (!expenses.length) return `<tr><td colspan="5"><div class="empty-state" style="padding:30px"><div class="empty-icon">◪</div><h3>لا توجد مصروفات</h3></div></td></tr>`;
+  if (!expenses.length) return `<tr><td colspan="6"><div class="empty-state" style="padding:30px"><div class="empty-icon">◪</div><h3>لا توجد مصروفات</h3></div></td></tr>`;
   return expenses.map(e => {
     const proj = e.project_id ? (projects || []).find(p => p.id === e.project_id) : null;
     return `
@@ -271,6 +281,7 @@ function renderExpenseRows(expenses, projects) {
         <td class="number text-danger">${formatMoney(e.amount)}</td>
         <td>${formatDate(e.date)}</td>
         <td>${proj ? proj.name : '-'}</td>
+        <td>${e.currency || 'EGP'}</td>
       </tr>
     `;
   }).join('');
@@ -300,6 +311,13 @@ function openNewExpenseModal() {
         </select>
       </div>
       <div class="form-group"><label>المبلغ *</label><input type="number" id="nexp-amount" min="0" step="0.01"></div>
+      <div class="form-group">
+        <label>العملة</label>
+        <select id="nexp-currency">
+          <option value="EGP">ج.م (EGP)</option>
+          <option value="USD">دولار (USD)</option>
+        </select>
+      </div>
       <div class="form-group form-full"><label>الوصف *</label><input type="text" id="nexp-desc" placeholder="وصف المصروف"></div>
       <div class="form-group"><label>التاريخ</label><input type="date" id="nexp-date" value="${new Date().toISOString().split('T')[0]}"></div>
       <div class="form-group">
@@ -326,6 +344,7 @@ async function saveExpense() {
     description: desc, amount,
     date:        document.getElementById('nexp-date').value,
     project_id:  projId ? parseInt(projId) : null,
+    currency:    document.getElementById('nexp-currency')?.value || 'EGP',
   });
   closeModal();
   toast('تم تسجيل المصروف', 'success');
@@ -456,4 +475,34 @@ async function markAllRead() {
   }
   loadNotifications();
   renderNotifications();
+}
+
+// ===== EXPORT: EXPENSES =====
+function exportExpensesPDF() {
+  const expenses = window._expensesData || [];
+  const headers = ['#','الفئة','الوصف','المبلغ','العملة','التاريخ','المشروع'];
+  const rows = expenses.map((e,i)=>[i+1,e.category,(e.description||'').substring(0,22),parseFloat(e.amount||0).toFixed(2),e.currency||'EGP',formatDate(e.date),e.project_id?'مشروع':'-']);
+  const total = expenses.reduce((s,e)=>s+(e.amount||0),0);
+  exportGenericPDF({ title:'المصروفات', subtitle:'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow:['','','الإجمالي',total.toFixed(2),'EGP','',''], filename:`expenses-${new Date().toISOString().split('T')[0]}.pdf`, orientation:'portrait' });
+}
+function exportExpensesExcel() {
+  const expenses = window._expensesData || [];
+  const headers = ['الفئة','الوصف','المبلغ','العملة','التاريخ'];
+  const rows = expenses.map(e=>[e.category,e.description,e.amount||0,e.currency||'EGP',e.date]);
+  const total = expenses.reduce((s,e)=>s+(e.amount||0),0);
+  exportGenericExcel({ sheetName:'المصروفات', headers, rows, totalsRow:['الإجمالي','',total,'',''], filename:`expenses-${new Date().toISOString().split('T')[0]}.xlsx` });
+}
+
+// ===== EXPORT: PRODUCTS =====
+function exportProductsPDF() {
+  const products = window._productsData || [];
+  const headers = ['الكود','المنتج','الفئة','الوحدة','سعر الكلفة','سعر البيع','المخزون'];
+  const rows = products.map(p=>[p.code,(p.name||'').substring(0,20),p.category,p.unit,parseFloat(p.cost||0).toFixed(2)+' EGP',parseFloat(p.price||0).toFixed(2)+' EGP',p.stock_qty]);
+  exportGenericPDF({ title:'المنتجات', subtitle:'نظام ERP - الرخام والجرانيت', headers, rows, filename:`products-${new Date().toISOString().split('T')[0]}.pdf`, orientation:'portrait' });
+}
+function exportProductsExcel() {
+  const products = window._productsData || [];
+  const headers = ['الكود','المنتج','الفئة','الوحدة','سعر الكلفة (EGP)','سعر البيع (EGP)','المخزون','الحد الأدنى'];
+  const rows = products.map(p=>[p.code,p.name,p.category,p.unit,p.cost||0,p.price||0,p.stock_qty,p.min_stock]);
+  exportGenericExcel({ sheetName:'المنتجات', headers, rows, filename:`products-${new Date().toISOString().split('T')[0]}.xlsx` });
 }

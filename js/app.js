@@ -312,3 +312,95 @@ document.addEventListener('keydown', (e) => {
     doLogin();
   }
 });
+
+// ===== ROLE HELPERS =====
+function isManager() {
+  const role = currentUser?.role || '';
+  return ['مدير عام', 'مدير', 'مدير مبيعات', 'مدير قسم'].includes(role);
+}
+
+function currencyDropdown(id, selectedValue = 'EGP') {
+  return `<select id="${id}">
+    <option value="EGP" ${selectedValue === 'EGP' ? 'selected' : ''}>ج.م (EGP)</option>
+    <option value="USD" ${selectedValue === 'USD' ? 'selected' : ''}>دولار (USD)</option>
+  </select>`;
+}
+
+// ===== SHARED EXPORT UTILITIES =====
+function exportGenericPDF({ title, subtitle, headers, rows, totalsRow, filename, orientation }) {
+  if (!rows || !rows.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
+  if (typeof window.jspdf === 'undefined') { toast('مكتبة PDF غير محملة', 'error'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: orientation || 'landscape', unit: 'mm', format: 'a4' });
+  const pageW = orientation === 'portrait' ? 210 : 297;
+  const margin = 12;
+  const usableW = pageW - margin * 2;
+
+  doc.setFillColor(30, 30, 30);
+  doc.rect(0, 0, pageW, 28, 'F');
+  doc.setTextColor(255, 215, 0);
+  doc.setFontSize(14);
+  doc.text(title, pageW / 2, 11, { align: 'center' });
+  doc.setTextColor(200, 200, 200);
+  doc.setFontSize(9);
+  if (subtitle) doc.text(subtitle, pageW / 2, 18, { align: 'center' });
+  doc.text(`تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`, pageW / 2, 24, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+
+  const colW = usableW / headers.length;
+  const colPositions = headers.map((_, i) => margin + i * colW);
+
+  let y = 36;
+
+  doc.setFillColor(50, 50, 50);
+  doc.rect(margin, y - 5, usableW, 8, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(8);
+  headers.forEach((h, i) => {
+    const x = colPositions[i] + colW / 2;
+    doc.text(String(h), x, y, { align: 'center' });
+  });
+  doc.setTextColor(0, 0, 0);
+  y += 8;
+
+  rows.forEach((row, rIdx) => {
+    if (y > (orientation === 'portrait' ? 265 : 185)) { doc.addPage(); y = 20; }
+    if (rIdx % 2 === 0) { doc.setFillColor(245, 245, 245); doc.rect(margin, y - 5, usableW, 7, 'F'); }
+    doc.setFontSize(7.5);
+    row.forEach((cell, i) => {
+      const x = colPositions[i] + colW / 2;
+      const text = String(cell === null || cell === undefined ? '-' : cell);
+      doc.text(text.substring(0, 28), x, y, { align: 'center' });
+    });
+    y += 7;
+  });
+
+  if (totalsRow) {
+    y += 2;
+    doc.setFillColor(30, 30, 30);
+    doc.rect(margin, y - 5, usableW, 8, 'F');
+    doc.setTextColor(255, 215, 0);
+    doc.setFontSize(8.5);
+    totalsRow.forEach((cell, i) => {
+      const x = colPositions[i] + colW / 2;
+      doc.text(String(cell === null || cell === undefined ? '' : cell), x, y, { align: 'center' });
+    });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  doc.save(filename || `report-${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('تم تصدير PDF بنجاح', 'success');
+}
+
+function exportGenericExcel({ sheetName, headers, rows, totalsRow, filename }) {
+  if (!rows || !rows.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
+  if (typeof XLSX === 'undefined') { toast('مكتبة Excel غير محملة', 'error'); return; }
+  const data = [headers, ...rows];
+  if (totalsRow) data.push(totalsRow);
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = headers.map(() => ({ wch: 22 }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName || 'تقرير');
+  XLSX.writeFile(wb, filename || `report-${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast('تم تصدير Excel بنجاح', 'success');
+}
