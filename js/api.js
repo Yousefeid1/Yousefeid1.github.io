@@ -264,25 +264,40 @@ const DB = {
     const idx = items.findIndex(i => i.id === item.id);
     if (idx >= 0) items[idx] = item; else items.push(item);
     this.set(key, items);
+    DB._broadcast(key, 'save');
     return item;
   },
   remove(key, id) {
     this.set(key, this.getAll(key).filter(i => i.id !== parseInt(id)));
+    DB._broadcast(key, 'remove');
   },
   nextId(key) {
     const items = this.getAll(key);
     return items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 1;
   },
+  _channel: null,
+  _broadcast(key, op) {
+    if (!this._channel) return;
+    try { this._channel.postMessage({ type: 'db_change', key, op, ts: Date.now() }); } catch (_) {}
+  },
+  _initChannel() {
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        this._channel = new BroadcastChannel('marble_erp_sync');
+      }
+    } catch (_) {}
+  },
 };
 
 DB.init();
+DB._initChannel();
 
 // ===== MOCK API =====
 const api = {
-  token: localStorage.getItem('marble_token'),
+  token: sessionStorage.getItem('marble_token') || localStorage.getItem('marble_token'),
 
-  setToken(t)  { this.token = t; localStorage.setItem('marble_token', t); },
-  clearToken() { this.token = null; localStorage.removeItem('marble_token'); localStorage.removeItem('marble_user'); },
+  setToken(t)  { this.token = t; sessionStorage.setItem('marble_token', t); },
+  clearToken() { this.token = null; sessionStorage.removeItem('marble_token'); sessionStorage.removeItem('marble_user'); localStorage.removeItem('marble_token'); localStorage.removeItem('marble_user'); },
 
   // ===== AUTH =====
   async login(email, password) {
@@ -293,7 +308,7 @@ const api = {
     if (user.work_status === 'resigned')   throw new Error('لقد قدّم هذا الموظف استقالته. تواصل مع المدير.');
     return { token: 'mock_token_' + Date.now(), user: { id: user.id, name: user.name, role: user.role, email: user.email } };
   },
-  async me() { return JSON.parse(localStorage.getItem('marble_user') || '{}'); },
+  async me() { return JSON.parse(sessionStorage.getItem('marble_user') || localStorage.getItem('marble_user') || '{}'); },
 
   // ===== DASHBOARD =====
   async dashboard() {
@@ -740,7 +755,7 @@ const api = {
 
   // ===== ACTIVITY LOG =====
   logActivity(action, entityType, entityId, description) {
-    const user = JSON.parse(localStorage.getItem('marble_user') || '{}');
+    const user = JSON.parse(sessionStorage.getItem('marble_user') || localStorage.getItem('marble_user') || '{}');
     if (!user.id) return;
     DB.save('activity_log', {
       id: DB.nextId('activity_log'),

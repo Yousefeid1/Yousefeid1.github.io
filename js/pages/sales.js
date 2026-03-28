@@ -3,11 +3,17 @@
 // ============================================
 
 // ===== SALES =====
-async function renderSales() {
+let _salesPage = 1;
+
+async function renderSales(page) {
+  if (page) _salesPage = page;
   const content = document.getElementById('page-content');
   try {
     const customers = await api.customers();
     const { data: sales } = await api.sales();
+
+    const paged = slicePage(sales, _salesPage);
+    const pagination = renderPaginationBar(_salesPage, sales.length, 'renderSales');
 
     content.innerHTML = `
       <div class="page-header">
@@ -52,10 +58,11 @@ async function renderSales() {
               <th>إجراءات</th>
             </tr></thead>
             <tbody id="sales-tbody">
-              ${renderSalesRows(sales)}
+              ${renderSalesRows(paged)}
             </tbody>
           </table>
         </div>
+        ${pagination}
       </div>
     `;
 
@@ -107,8 +114,9 @@ async function filterSales() {
   const search = document.getElementById('sales-search').value;
   const status = document.getElementById('sales-status-filter').value;
   const { data } = await api.sales({ search, status });
-  document.getElementById('sales-tbody').innerHTML = renderSalesRows(data);
+  _salesPage = 1;
   window._salesData = data;
+  _updateTableWithPagination('sales-tbody', renderSalesRows, data, 1, 'renderSales');
 }
 
 function canUserChangeInvoiceStatus() {

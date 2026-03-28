@@ -330,10 +330,16 @@ async function viewEmployeeActivity(userId, userName) {
 }
 
 // ===== ACTIVITY LOG PAGE =====
-async function renderActivityLog() {
+let _activityLogPage = 1;
+
+async function renderActivityLog(page) {
+  if (page) _activityLogPage = page;
   const content = document.getElementById('page-content');
   try {
     const [logs, users] = await Promise.all([api.activityLog(), api.users()]);
+
+    const paged      = slicePage(logs, _activityLogPage);
+    const pagination = renderPaginationBar(_activityLogPage, logs.length, 'renderActivityLog');
 
     content.innerHTML = `
       <div class="page-header">
@@ -367,9 +373,10 @@ async function renderActivityLog() {
             <thead><tr>
               <th>التاريخ والوقت</th><th>الموظف</th><th>الإجراء</th><th>النوع</th><th>التفاصيل</th>
             </tr></thead>
-            <tbody id="log-tbody">${renderActivityLogRows(logs)}</tbody>
+            <tbody id="log-tbody">${renderActivityLogRows(paged)}</tbody>
           </table>
         </div>
+        ${pagination}
       </div>
     `;
     window._activityLogs  = logs;
@@ -406,7 +413,9 @@ async function filterActivityLog() {
   if (userId)     params.user_id     = parseInt(userId);
   if (entityType) params.entity_type = entityType;
   const logs = await api.activityLog(params);
-  document.getElementById('log-tbody').innerHTML = renderActivityLogRows(logs);
+  _activityLogPage = 1;
+  window._activityLogs = logs;
+  _updateTableWithPagination('log-tbody', renderActivityLogRows, logs, 1, 'renderActivityLog');
 }
 
 // ===== EXPORT: ACTIVITY LOG EXCEL =====
@@ -437,45 +446,23 @@ function exportActivityLogExcel() {
 function exportActivityLogPDF() {
   const logs = window._activityLogs || [];
   if (!logs.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
-  if (typeof window.jspdf === 'undefined') { toast('مكتبة PDF غير محملة بعد', 'error'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  doc.setFontSize(16);
-  doc.text('سجل الأنشطة - نظام ERP الرخام والجرانيت', 148, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`, 148, 22, { align: 'center' });
 
   const actionLabels = { create: 'إنشاء', update: 'تعديل', delete: 'حذف', login: 'دخول' };
-  let y = 32;
-  const cols = [15, 45, 75, 110, 135, 165, 200];
-  const headers = ['#', 'التاريخ', 'الموظف', 'الإجراء', 'النوع', 'التفاصيل'];
+  const headers  = ['التاريخ والوقت', 'الموظف', 'الإجراء', 'النوع', 'التفاصيل'];
+  const rows     = logs.map(l => [
+    new Date(l.created_at).toLocaleDateString('ar-EG') + ' ' + new Date(l.created_at).toLocaleTimeString('ar-EG'),
+    l.user_name || '',
+    actionLabels[l.action] || l.action,
+    l.entity_type || '',
+    l.description || '',
+  ]);
 
-  doc.setFillColor(40, 40, 40);
-  doc.rect(10, y - 5, 277, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  headers.forEach((h, i) => doc.text(h, cols[i], y));
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  logs.forEach((l, idx) => {
-    if (y > 185) { doc.addPage(); y = 20; }
-    const dateStr = new Date(l.created_at).toLocaleDateString('ar-EG') + ' ' + new Date(l.created_at).toLocaleTimeString('ar-EG');
-    const row = [
-      String(idx + 1),
-      dateStr.substring(0, 18),
-      (l.user_name || '').substring(0, 18),
-      actionLabels[l.action] || l.action,
-      (l.entity_type || '').substring(0, 14),
-      (l.description || '').substring(0, 50),
-    ];
-    doc.setFontSize(8);
-    row.forEach((cell, i) => doc.text(cell, cols[i], y));
-    y += 7;
+  exportGenericPDF({
+    title:    'سجل الأنشطة',
+    subtitle: 'نظام ERP - الرخام والجرانيت',
+    headers,
+    rows,
+    filename: `activity-log-${new Date().toISOString().split('T')[0]}.pdf`,
+    orientation: 'landscape',
   });
-
-  doc.save(`activity-log-${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('تم تصدير PDF بنجاح', 'success');
 }

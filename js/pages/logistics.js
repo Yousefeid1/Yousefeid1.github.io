@@ -627,49 +627,20 @@ async function saveNewShipment() {
 function exportShipmentsPDF() {
   const shipments = window._shipmentData || [];
   if (!shipments.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
-  if (typeof window.jspdf === 'undefined') { toast('مكتبة PDF غير محملة بعد، حاول مجدداً', 'error'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  doc.setFontSize(16);
-  doc.text('تقرير الشحنات - نظام ERP الرخام والجرانيت', 148, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`, 148, 22, { align: 'center' });
 
   const statusLabel = { pending: 'قيد التنفيذ', ready_to_ship: 'مستعد للشحن', in_transit: 'في الطريق', arrived: 'وصل', delivered: 'تم التسليم', cancelled: 'ملغاة' };
-  let y = 32;
-  const cols = [15, 40, 55, 70, 105, 140, 170, 200, 220, 250];
-  const headers = ['#', 'رقم الشحنة', 'نوع الشحن', 'العميل', 'الوجهة', 'تاريخ الشحن', 'تاريخ التسليم', 'العملة', 'الحالة'];
-
-  doc.setFillColor(40, 40, 40);
-  doc.rect(10, y - 5, 277, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  headers.forEach((h, i) => doc.text(h, cols[i], y, { align: 'left' }));
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  shipments.forEach((s, idx) => {
-    if (y > 185) { doc.addPage(); y = 20; }
-    const row = [
-      String(idx + 1),
-      s.shipment_number,
-      s.ship_type || 'بري',
-      (s.customer || '').substring(0, 18),
-      (s.destination || '-').substring(0, 22),
-      formatDate(s.shipment_date),
-      s.delivery_date ? formatDate(s.delivery_date) : '-',
-      s.currency || 'EGP',
-      statusLabel[s.status] || s.status,
-    ];
-    doc.setFontSize(8);
-    row.forEach((cell, i) => doc.text(cell, cols[i], y));
-    y += 7;
-  });
-
-  doc.save(`shipments-${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('تم تصدير PDF بنجاح', 'success');
+  const headers = ['رقم الشحنة', 'نوع الشحن', 'العميل', 'الوجهة', 'تاريخ الشحن', 'تاريخ التسليم', 'العملة', 'الحالة'];
+  const rows = shipments.map(s => [
+    s.shipment_number,
+    s.ship_type || 'بري',
+    s.customer || '',
+    s.destination || '-',
+    formatDate(s.shipment_date),
+    s.delivery_date ? formatDate(s.delivery_date) : '-',
+    s.currency || 'EGP',
+    statusLabel[s.status] || s.status,
+  ]);
+  exportGenericPDF({ title: 'تقرير الشحنات', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, filename: `shipments-${new Date().toISOString().split('T')[0]}.pdf`, orientation: 'landscape' });
 }
 
 // ===== EXPORT: SHIPMENTS EXCEL =====
@@ -866,49 +837,20 @@ function exportShipmentReportExcel() {
 function exportShipmentReportPDF() {
   const items = window._shipmentReportData || [];
   if (!items.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
-  if (typeof window.jspdf === 'undefined') { toast('مكتبة PDF غير محملة بعد', 'error'); return; }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-  doc.setFontSize(16);
-  doc.text('تقرير التصدير - نظام ERP الرخام والجرانيت', 148, 15, { align: 'center' });
-  doc.setFontSize(10);
-  doc.text(`تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`, 148, 22, { align: 'center' });
 
   const statusLabel = { pending: 'قيد التنفيذ', ready_to_ship: 'مستعد للشحن', in_transit: 'في الطريق', arrived: 'وصل', delivered: 'تم التسليم', cancelled: 'ملغاة' };
-  let y = 32;
-  const cols = [15, 40, 60, 75, 115, 160, 190, 220, 250];
-  const headers = ['#', 'رقم الشحنة', 'نوع الشحن', 'العميل', 'الوجهة', 'تاريخ الشحن', 'تاريخ التسليم', 'العملة', 'الحالة'];
-
-  doc.setFillColor(40, 40, 40);
-  doc.rect(10, y - 5, 277, 8, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  headers.forEach((h, i) => doc.text(h, cols[i], y));
-  doc.setTextColor(0, 0, 0);
-  y += 8;
-
-  items.forEach((s, idx) => {
-    if (y > 185) { doc.addPage(); y = 20; }
-    const row = [
-      String(idx + 1),
-      s.shipment_number,
-      s.ship_type || 'بري',
-      (s.customer || '').substring(0, 18),
-      (s.destination || '-').substring(0, 26),
-      formatDate(s.shipment_date),
-      s.delivery_date ? formatDate(s.delivery_date) : '-',
-      s.currency || 'EGP',
-      statusLabel[s.status] || s.status,
-    ];
-    doc.setFontSize(8);
-    row.forEach((cell, i) => doc.text(cell, cols[i], y));
-    y += 7;
-  });
-
-  doc.save(`shipment-report-${new Date().toISOString().split('T')[0]}.pdf`);
-  toast('تم تصدير PDF بنجاح', 'success');
+  const headers = ['رقم الشحنة', 'نوع الشحن', 'العميل', 'الوجهة', 'تاريخ الشحن', 'تاريخ التسليم', 'العملة', 'الحالة'];
+  const rows = items.map(s => [
+    s.shipment_number,
+    s.ship_type || 'بري',
+    s.customer || '',
+    s.destination || '-',
+    formatDate(s.shipment_date),
+    s.delivery_date ? formatDate(s.delivery_date) : '-',
+    s.currency || 'EGP',
+    statusLabel[s.status] || s.status,
+  ]);
+  exportGenericPDF({ title: 'تقرير التصدير', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, filename: `shipment-report-${new Date().toISOString().split('T')[0]}.pdf`, orientation: 'landscape' });
 }
 
 // ===== EXPORT: WAREHOUSES =====
