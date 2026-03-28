@@ -3,13 +3,19 @@
 // ============================================
 
 // ===== PURCHASES =====
-async function renderPurchases() {
+let _purchasesPage = 1;
+
+async function renderPurchases(page) {
+  if (page) _purchasesPage = page;
   const content = document.getElementById('page-content');
   try {
     const suppliers = await api.suppliers();
     const { data: purchases } = await api.purchases();
     window._suppliersData = suppliers;
     window._purchasesData = purchases;
+
+    const paged      = slicePage(purchases, _purchasesPage);
+    const pagination = renderPaginationBar(_purchasesPage, purchases.length, 'renderPurchases');
 
     content.innerHTML = `
       <div class="page-header">
@@ -37,9 +43,10 @@ async function renderPurchases() {
               <th>رقم الفاتورة</th><th>المورد</th><th>التاريخ</th><th>تاريخ الاستحقاق</th>
               <th>الإجمالي</th><th>المدفوع</th><th>المتبقي</th><th>العملة</th><th>الحالة</th>
             </tr></thead>
-            <tbody id="pur-tbody">${renderPurchaseRows(purchases)}</tbody>
+            <tbody id="pur-tbody">${renderPurchaseRows(paged)}</tbody>
           </table>
         </div>
+        ${pagination}
       </div>
     `;
   } catch (e) {
@@ -68,7 +75,9 @@ async function filterPurchases() {
   const search = document.getElementById('pur-search').value;
   const status = document.getElementById('pur-status-filter').value;
   const { data } = await api.purchases({ search, status });
-  document.getElementById('pur-tbody').innerHTML = renderPurchaseRows(data);
+  _purchasesPage = 1;
+  window._purchasesData = data;
+  document.getElementById('pur-tbody').innerHTML = renderPurchaseRows(slicePage(data, 1));
 }
 
 function openNewPurchaseModal() {

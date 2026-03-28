@@ -2,7 +2,11 @@
 // Payments & Receipts Page
 // ============================================
 
-async function renderPayments() {
+// ===== PAYMENTS =====
+let _paymentsPage = 1;
+
+async function renderPayments(page) {
+  if (page) _paymentsPage = page;
   const content = document.getElementById('page-content');
   try {
     const customers = await api.customers();
@@ -14,6 +18,9 @@ async function renderPayments() {
 
     const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + p.amount, 0);
     const totalPayments = payments.filter(p => p.type === 'payment').reduce((s, p) => s + p.amount, 0);
+
+    const paged      = slicePage(payments, _paymentsPage);
+    const pagination = renderPaginationBar(_paymentsPage, payments.length, 'renderPayments');
 
     content.innerHTML = `
       <div class="page-header">
@@ -47,9 +54,10 @@ async function renderPayments() {
             <thead><tr>
               <th>النوع</th><th>الطرف</th><th>المبلغ</th><th>التاريخ</th><th>طريقة الدفع</th><th>المرجع</th><th>ملاحظات</th><th>العملة</th>
             </tr></thead>
-            <tbody id="pay-tbody">${renderPaymentRows(payments)}</tbody>
+            <tbody id="pay-tbody">${renderPaymentRows(paged)}</tbody>
           </table>
         </div>
+        ${pagination}
       </div>
     `;
   } catch (e) {
@@ -81,7 +89,9 @@ async function filterPayments() {
   const search = document.getElementById('pay-search').value;
   const type   = document.getElementById('pay-type-filter').value;
   const { data } = await api.payments({ search, type });
-  document.getElementById('pay-tbody').innerHTML = renderPaymentRows(data);
+  _paymentsPage = 1;
+  window._paymentsData = data;
+  document.getElementById('pay-tbody').innerHTML = renderPaymentRows(slicePage(data, 1));
 }
 
 async function openNewPaymentModal(type) {

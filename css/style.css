@@ -911,3 +911,101 @@ tbody td {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .number { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* ===== PAGINATION ===== */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pagination-btns {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn:hover {
+  background: var(--border-light);
+  color: var(--text-primary);
+}
+
+.page-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+  font-weight: 700;
+}
+
+/* ===== MOBILE IMPROVEMENTS ===== */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(100%); position: fixed; z-index: 200; transition: transform 0.3s; }
+  .sidebar:not(.collapsed) { transform: translateX(0); }
+  .main-content { margin-right: 0 !important; width: 100%; }
+
+  .report-summary { grid-template-columns: 1fr 1fr; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .page-header > div:last-child { width: 100%; justify-content: flex-start; }
+
+  .filters-bar { flex-wrap: wrap; }
+  .filters-bar > * { min-width: 100% !important; }
+
+  .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .pagination-bar { justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .report-summary { grid-template-columns: 1fr; }
+  .summary-box .value { font-size: 20px; }
+  .top-bar { padding: 0 12px; }
+}
+
+/* ===== SYNC INDICATOR ===== */
+.sync-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  margin-inline-start: 6px;
+  animation: pulse-sync 2s ease-in-out infinite;
+}
+
+@keyframes pulse-sync {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ===== REAL-TIME REFRESH FLASH ===== */
+@keyframes rowFlash {
+  from { background: rgba(200, 169, 110, 0.25); }
+  to   { background: transparent; }
+}
+.row-new { animation: rowFlash 1.2s ease-out; }
