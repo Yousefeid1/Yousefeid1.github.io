@@ -91,7 +91,7 @@ async function filterPayments() {
   const { data } = await api.payments({ search, type });
   _paymentsPage = 1;
   window._paymentsData = data;
-  document.getElementById('pay-tbody').innerHTML = renderPaymentRows(slicePage(data, 1));
+  _updateTableWithPagination('pay-tbody', renderPaymentRows, data, 1, 'renderPayments');
 }
 
 async function openNewPaymentModal(type) {

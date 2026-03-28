@@ -415,7 +415,7 @@ async function filterActivityLog() {
   const logs = await api.activityLog(params);
   _activityLogPage = 1;
   window._activityLogs = logs;
-  document.getElementById('log-tbody').innerHTML = renderActivityLogRows(slicePage(logs, 1));
+  _updateTableWithPagination('log-tbody', renderActivityLogRows, logs, 1, 'renderActivityLog');
 }
 
 // ===== EXPORT: ACTIVITY LOG EXCEL =====

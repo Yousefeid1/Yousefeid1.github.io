@@ -116,14 +116,7 @@ async function filterSales() {
   const { data } = await api.sales({ search, status });
   _salesPage = 1;
   window._salesData = data;
-  document.getElementById('sales-tbody').innerHTML = renderSalesRows(slicePage(data, 1));
-  // Replace pagination bar
-  const card = document.querySelector('#sales-table').closest('.card');
-  let pb = card.querySelector('.pagination-bar');
-  const newPb = document.createElement('div');
-  newPb.innerHTML = renderPaginationBar(1, data.length, 'renderSales');
-  if (pb) { pb.replaceWith(newPb.firstElementChild || document.createTextNode('')); }
-  else if (newPb.firstElementChild) { card.appendChild(newPb.firstElementChild); }
+  _updateTableWithPagination('sales-tbody', renderSalesRows, data, 1, 'renderSales');
 }
 
 function canUserChangeInvoiceStatus() {

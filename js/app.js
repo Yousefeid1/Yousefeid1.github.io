@@ -466,8 +466,10 @@ const ROWS_PER_PAGE = 25;
  * Returns a slice of `items` for the given 1-based `page`.
  */
 function slicePage(items, page, pageSize = ROWS_PER_PAGE) {
-  const start = (page - 1) * pageSize;
-  return items.slice(start, start + pageSize);
+  if (!Array.isArray(items)) return [];
+  const size  = pageSize > 0 ? pageSize : ROWS_PER_PAGE;
+  const start = (page - 1) * size;
+  return items.slice(start, start + size);
 }
 
 /**
@@ -478,7 +480,8 @@ function slicePage(items, page, pageSize = ROWS_PER_PAGE) {
  * @param {number} [pageSize]   rows per page (default ROWS_PER_PAGE)
  */
 function renderPaginationBar(currentPage, total, onClickFn, pageSize = ROWS_PER_PAGE) {
-  const totalPages = Math.ceil(total / pageSize);
+  const size       = pageSize > 0 ? pageSize : ROWS_PER_PAGE;
+  const totalPages = Math.ceil(total / size);
   if (totalPages <= 1) return '';
 
   const MAX_BTNS = 5;
@@ -493,11 +496,30 @@ function renderPaginationBar(currentPage, total, onClickFn, pageSize = ROWS_PER_
   }
   if (currentPage < totalPages) btns.push(`<button class="page-btn" onclick="${onClickFn}(${currentPage + 1})">&#8250;</button>`);
 
-  const from = (currentPage - 1) * pageSize + 1;
-  const to   = Math.min(currentPage * pageSize, total);
+  const from = (currentPage - 1) * size + 1;
+  const to   = Math.min(currentPage * size, total);
 
   return `<div class="pagination-bar">
     <span class="pagination-info">${from}–${to} من ${total} سجل</span>
     <div class="pagination-btns">${btns.join('')}</div>
   </div>`;
+}
+
+/** Helper: update tbody + pagination bar in a table card */
+function _updateTableWithPagination(tbodyId, rowsFn, data, page, renderFn) {
+  const tbody = document.getElementById(tbodyId);
+  if (tbody) tbody.innerHTML = rowsFn(slicePage(data, page));
+  const newPbHtml = renderPaginationBar(page, data.length, renderFn);
+  const card = tbody ? tbody.closest('.card') : null;
+  if (card) {
+    const existing = card.querySelector('.pagination-bar');
+    if (existing) {
+      if (newPbHtml) existing.outerHTML = newPbHtml;
+      else existing.remove();
+    } else if (newPbHtml) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = newPbHtml;
+      if (tmp.firstElementChild) card.appendChild(tmp.firstElementChild);
+    }
+  }
 }

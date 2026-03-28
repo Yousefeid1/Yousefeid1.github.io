@@ -77,7 +77,7 @@ async function filterPurchases() {
   const { data } = await api.purchases({ search, status });
   _purchasesPage = 1;
   window._purchasesData = data;
-  document.getElementById('pur-tbody').innerHTML = renderPurchaseRows(slicePage(data, 1));
+  _updateTableWithPagination('pur-tbody', renderPurchaseRows, data, 1, 'renderPurchases');
 }
 
 function openNewPurchaseModal() {
