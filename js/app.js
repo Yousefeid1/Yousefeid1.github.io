@@ -114,9 +114,9 @@ const ROLE_PAGES = {
   'موظف مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'notifications'],
   'مدير مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'payments', 'report-pl', 'notifications'],
   'موظف مشتريات':  ['dashboard', 'purchases', 'suppliers', 'payments', 'notifications'],
-  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'products', 'notifications'],
-  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'products', 'report-waste', 'report-inventory', 'notifications'],
-  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'products', 'notifications'],
+  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'notifications'],
+  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'report-waste', 'report-inventory', 'notifications'],
+  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'notifications'],
   'موظف لوجستيك':  ['dashboard', 'warehouses', 'shipments', 'shipment-report', 'notifications'],
   'مدير قسم':       ['dashboard', 'employees', 'activity-log', 'sales', 'customers', 'report-pl', 'notifications'],
   'موظف عادي':      ['dashboard', 'notifications'],
@@ -284,6 +284,7 @@ const pageTitles = {
   'quotations':       'عروض الأسعار',
   'cost-centers':     'مراكز التكلفة الفعلية',
   'export':           'نظام التصدير',
+  'quality':          'إدارة الجودة',
 };
 
 // Track current page for real-time refresh
@@ -345,6 +346,7 @@ function showPage(pageName) {
     'quotations':       renderQuotations,
     'cost-centers':     renderCostCenters,
     'export':           renderExport,
+    'quality':          renderQuality,
   };
 
   if (renders[pageName]) renders[pageName]();
@@ -373,6 +375,7 @@ function _scheduleRefresh() {
         'quotations': renderQuotations,
         'cost-centers': renderCostCenters,
         'export': renderExport,
+        'quality': renderQuality,
       };
       if (renders[_currentPage]) renders[_currentPage]();
       loadNotifications();
