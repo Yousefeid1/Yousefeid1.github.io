@@ -4,6 +4,76 @@
 
 let currentUser = null;
 
+// ===== تشفير التوكن بـ XOR =====
+// يُشتق مفتاح التشفير من بيانات المتصفح لتعزيز الأمان
+function _xorKey() {
+  const raw = (navigator.userAgent || '') + (screen.width || 0);
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) {
+    h = (Math.imul(31, h) + raw.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36) || 'k';
+}
+
+// تشفير التوكن قبل تخزينه
+function _encToken(t) {
+  const k = _xorKey();
+  let r = '';
+  for (let i = 0; i < t.length; i++) {
+    r += String.fromCharCode(t.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+  }
+  try { return btoa(unescape(encodeURIComponent(r))); } catch { return btoa(r); }
+}
+
+// فك تشفير التوكن عند القراءة
+function _decToken(e) {
+  try {
+    const raw = decodeURIComponent(escape(atob(e)));
+    const k = _xorKey();
+    let t = '';
+    for (let i = 0; i < raw.length; i++) {
+      t += String.fromCharCode(raw.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    }
+    return t;
+  } catch { return null; }
+}
+
+// حفظ التوكن بشكل مشفر مع ختم الوقت
+function _storeToken(token) {
+  sessionStorage.setItem('marble_token', _encToken(token));
+  sessionStorage.setItem('marble_token_ts', Date.now());
+  // حذف أي نسخة نصية قديمة غير مشفرة من localStorage
+  localStorage.removeItem('marble_token');
+}
+
+// ===== مؤقت عدم النشاط (تسجيل خروج تلقائي بعد 8 ساعات) =====
+const INACTIVITY_LIMIT = 8 * 60 * 60 * 1000; // 8 ساعات بالميلي ثانية
+
+function _resetActivityTimer() {
+  sessionStorage.setItem('marble_last_activity', Date.now());
+}
+
+function _checkInactivity() {
+  // لا تتحقق إذا كان المستخدم غير مسجل الدخول
+  if (!currentUser) return;
+  const last = parseInt(sessionStorage.getItem('marble_last_activity') || '0');
+  if (last && (Date.now() - last) > INACTIVITY_LIMIT) {
+    doLogout();
+    // عرض رسالة بعد تحديث الواجهة
+    setTimeout(() => {
+      const errEl = document.getElementById('login-error');
+      if (errEl) errEl.textContent = 'تم تسجيل الخروج تلقائياً بسبب عدم النشاط لمدة 8 ساعات';
+    }, 100);
+  }
+}
+
+// إعادة ضبط المؤقت عند أي تفاعل من المستخدم
+document.addEventListener('click',    _resetActivityTimer, { passive: true });
+document.addEventListener('keypress', _resetActivityTimer, { passive: true });
+
+// فحص عدم النشاط كل دقيقة
+setInterval(_checkInactivity, 60000);
+
 // ===== حد محاولات تسجيل الدخول =====
 const LOGIN_RATE_LIMIT = {
   max: 5,
@@ -28,11 +98,8 @@ const LOGIN_RATE_LIMIT = {
   reset() { sessionStorage.removeItem(this.key); }
 };
 
-// تنظيف المدخلات من الأكواد الخبيثة
-function sanitize(str) {
-  if (typeof str !== 'string') return str;
-  return str.replace(/[<>]/g, '').trim();
-}
+// تنظيف المدخلات — مُعرَّف في api.js ويمكن استخدامه هنا مباشرة
+// (sanitize مُعرَّف بالفعل في api.js الذي يُحمَّل أولاً)
 
 // نافذة تأكيد قبل الحذف
 function confirmDelete(message = 'هل أنت متأكد من الحذف؟ لا يمكن التراجع عن هذه العملية.') {
@@ -66,7 +133,10 @@ async function doLogin() {
     LOGIN_RATE_LIMIT.checkAndRecord();
     const data = await api.login(email, password);
     LOGIN_RATE_LIMIT.reset();
-    api.setToken(data.token);
+    // حفظ التوكن بشكل مشفر وتسجيل وقت آخر نشاط
+    api.token = data.token;
+    _storeToken(data.token);
+    _resetActivityTimer();
     currentUser = data.user;
     sessionStorage.setItem('marble_user', JSON.stringify(data.user));
     api.logActivity('login', 'auth', data.user.id, `تسجيل دخول: ${data.user.name} (${data.user.role})`);
@@ -399,20 +469,74 @@ window.addEventListener('load', () => {
     if (btn) btn.textContent = '☀️';
   }
 
-  const token = sessionStorage.getItem('marble_token') || localStorage.getItem('marble_token');
-  const user  = sessionStorage.getItem('marble_user')  || localStorage.getItem('marble_user');
-  if (token && user) {
-    api.setToken(token);
+  // ===== فحص سلامة البيانات قبل تحميل التطبيق =====
+  const corrupted = DB.validateIntegrity();
+  if (corrupted.length > 0) {
+    const appEl   = document.getElementById('app');
+    const loginEl = document.getElementById('login-screen');
+    if (appEl)   appEl.classList.add('hidden');
+    if (loginEl) loginEl.classList.add('hidden');
+    // عرض رسالة الخطأ مع زر إعادة الضبط
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-primary,#1a1a1a);color:var(--text-primary,#fff);font-family:Cairo,sans-serif;direction:rtl;padding:32px;text-align:center;z-index:9999';
+    errDiv.innerHTML = `
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <h2 style="font-size:22px;margin-bottom:12px;color:#e74c3c">تحذير: بيانات تالفة</h2>
+      <p style="font-size:15px;color:#aaa;max-width:480px;margin-bottom:8px">
+        تم اكتشاف تلف في بيانات التطبيق المحفوظة. قد يتعذر تشغيل النظام بشكل صحيح.
+      </p>
+      <p style="font-size:13px;color:#888;margin-bottom:24px">
+        المفاتيح المتأثرة: <strong style="color:#e74c3c">${corrupted.join('، ')}</strong>
+      </p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+        <button onclick="location.reload()" style="padding:10px 28px;background:#555;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit">
+          تجاهل والمتابعة
+        </button>
+        <button onclick="_confirmResetData()" style="padding:10px 28px;background:#e74c3c;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-family:inherit">
+          إعادة ضبط البيانات
+        </button>
+      </div>
+    `;
+    document.body.appendChild(errDiv);
+    return; // إيقاف التحميل
+  }
+
+  // ===== التحقق من التوكن المشفر وانتهاء صلاحيته =====
+  const encToken = sessionStorage.getItem('marble_token');
+  const tokenTs  = parseInt(sessionStorage.getItem('marble_token_ts') || '0');
+  const user     = sessionStorage.getItem('marble_user') || localStorage.getItem('marble_user');
+
+  // فك تشفير التوكن
+  const token = encToken ? _decToken(encToken) : (localStorage.getItem('marble_token') || null);
+
+  // التحقق من انتهاء الصلاحية (8 ساعات)
+  const isExpired = tokenTs && (Date.now() - tokenTs) > INACTIVITY_LIMIT;
+
+  if (token && user && !isExpired) {
+    api.token = token;
     currentUser = JSON.parse(user);
-    // Migrate to sessionStorage if still only in localStorage
+    // ترحيل إلى sessionStorage إن كانت البيانات في localStorage فقط
     if (!sessionStorage.getItem('marble_user')) sessionStorage.setItem('marble_user', user);
+    // ضمان حفظ التوكن بشكل مشفر
+    if (!encToken) _storeToken(token);
+    _resetActivityTimer();
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initApp();
+  } else if (isExpired) {
+    // حذف بيانات الجلسة المنتهية الصلاحية
+    sessionStorage.removeItem('marble_token');
+    sessionStorage.removeItem('marble_token_ts');
+    sessionStorage.removeItem('marble_user');
+    sessionStorage.removeItem('marble_last_activity');
+    localStorage.removeItem('marble_token');
+    localStorage.removeItem('marble_user');
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.textContent = 'انتهت صلاحية الجلسة. يرجى تسجيل الدخول مجدداً.';
   }
 
   // ===== REAL-TIME SYNC (BroadcastChannel) =====
-  // Listen for DB changes made in other tabs and refresh the current page
+  // الاستماع لتغييرات قاعدة البيانات من التبويبات الأخرى وتحديث الصفحة
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const syncListener = new BroadcastChannel('marble_erp_sync');
@@ -423,7 +547,23 @@ window.addEventListener('load', () => {
       };
     }
   } catch (_) {}
+
+  // ربط زر القائمة للهاتف المحمول
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  if (hamburgerBtn) hamburgerBtn.addEventListener('click', toggleSidebar);
 });
+
+// إعادة ضبط جميع البيانات بعد تأكيد المستخدم
+function _confirmResetData() {
+  if (confirm('هل أنت متأكد من حذف جميع البيانات المحفوظة وإعادة البدء من الصفر؟ لا يمكن التراجع عن هذه العملية.')) {
+    // حذف جميع مفاتيح التطبيق من localStorage
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('marble_'))
+      .forEach(k => localStorage.removeItem(k));
+    sessionStorage.clear();
+    location.reload();
+  }
+}
 
 // ===== اختصارات لوحة المفاتيح =====
 document.addEventListener('keydown', (e) => {
