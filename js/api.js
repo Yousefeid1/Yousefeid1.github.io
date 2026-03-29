@@ -2,6 +2,22 @@
 // Mock API Client - Marble ERP (localStorage)
 // ============================================
 
+// ===== تنظيف وتعقيم المدخلات (XSS Protection) =====
+function sanitize(str) {
+  if (typeof str !== 'string') return str;
+  // رفض النصوص التي تتجاوز الحد الأقصى المسموح
+  if (str.length > 1000) throw new Error('النص طويل جداً — الحد الأقصى 1000 حرف');
+  return str
+    .replace(/<[^>]*>/g, '')        // إزالة وسوم HTML
+    .replace(/&/g,  '&amp;')        // ترميز الرموز الخاصة لمنع XSS
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#x27;')
+    .replace(/\//g, '&#x2F;')
+    .trim();
+}
+
 // دالة تشفير بسيطة للكلمات المرور (للبيئة الأمامية فقط)
 function simpleHash(str) {
   let hash = 0;
@@ -275,12 +291,21 @@ const DB = {
   getAll(key) { return this.get(key) || []; },
   findById(key, id) { return this.getAll(key).find(i => i.id === parseInt(id)); },
   save(key, item) {
+    // تنظيف الحقول النصية قبل الحفظ في localStorage
+    const cleaned = {};
+    for (const [k, v] of Object.entries(item)) {
+      if (typeof v === 'string' && k !== 'password' && k !== 'email') {
+        try { cleaned[k] = sanitize(v); } catch { cleaned[k] = v; }
+      } else {
+        cleaned[k] = v;
+      }
+    }
     const items = this.getAll(key);
-    const idx = items.findIndex(i => i.id === item.id);
-    if (idx >= 0) items[idx] = item; else items.push(item);
+    const idx = items.findIndex(i => i.id === cleaned.id);
+    if (idx >= 0) items[idx] = cleaned; else items.push(cleaned);
     this.set(key, items);
     DB._broadcast(key, 'save');
-    return item;
+    return cleaned;
   },
   remove(key, id) {
     this.set(key, this.getAll(key).filter(i => i.id !== parseInt(id)));
@@ -301,6 +326,22 @@ const DB = {
         this._channel = new BroadcastChannel('marble_erp_sync');
       }
     } catch (_) {}
+  },
+  // ===== التحقق من سلامة البيانات =====
+  validateIntegrity() {
+    const required = [
+      'users', 'settings', 'customers', 'suppliers', 'products',
+      'sales', 'purchases', 'payments', 'expenses', 'blocks',
+      'slabs', 'cutting', 'journal', 'accounts',
+    ];
+    const corrupted = [];
+    for (const key of required) {
+      const raw = localStorage.getItem('marble_db_' + key);
+      if (raw !== null) {
+        try { JSON.parse(raw); } catch { corrupted.push(key); }
+      }
+    }
+    return corrupted;
   },
 };
 

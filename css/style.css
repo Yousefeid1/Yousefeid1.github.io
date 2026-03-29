@@ -1162,3 +1162,117 @@ tbody td {
 [data-theme="light"] table thead th {
   background: #2c2c2c;
 }
+
+/* ===== استكمال التصميم المتجاوب — Mobile First (Task 2.1) ===== */
+
+/* زر الهامبرغر — مرئي دائماً ومتمركز */
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== موبايل (أقل من 768px) ===== */
+@media (max-width: 767px) {
+  /* الشريط الجانبي — مخفي من اليمين (RTL) */
+  .sidebar { transform: translateX(100%); }
+  /* كلا الكلاسَّين يفتحان الشريط الجانبي */
+  .sidebar.open,
+  .sidebar.mobile-open { transform: translateX(0); }
+
+  /* المحتوى الرئيسي — بادئة 12px */
+  .main-content { margin-right: 0 !important; padding: 12px !important; }
+
+  /* زر الهامبرغر — مرئي صريحاً */
+  .hamburger-btn { display: flex !important; }
+
+  /* عنوان الصفحة — عمود واحد بمسافة 8px */
+  .page-header { flex-direction: column; gap: 8px; }
+
+  /* KPI — عمود واحد على الموبايل */
+  .kpi-grid { grid-template-columns: 1fr !important; }
+
+  /* الأزرار داخل صف الفورم — عرض كامل */
+  .form-row .btn { width: 100%; }
+
+  /* صف الفورم — عمود واحد */
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* المودال — شاشة كاملة */
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    position: fixed !important;
+  }
+
+  /* عرض البطاقات (table-card-view) — بديل الجداول على الموبايل */
+  .table-card-view {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    list-style: none;
+  }
+  .table-card-view .card-row {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+  }
+  .table-card-view .card-row .card-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 8px;
+  }
+  .table-card-view .card-row .card-field:last-child { border-bottom: none; }
+  .table-card-view .card-row .card-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 12px;
+    flex-shrink: 0;
+    min-width: 110px;
+  }
+}
+
+/* ===== تابلت (768px – 1024px) ===== */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* الشريط الجانبي — مطوي على 60px (أيقونات فقط) */
+  .sidebar {
+    width: 60px;
+    overflow: hidden;
+    transition: width 0.25s ease;
+  }
+  /* توسيع عند التحويم */
+  .sidebar:hover {
+    width: var(--sidebar-w);
+    overflow: visible;
+  }
+  /* إظهار النصوص عند التحويم */
+  .sidebar:hover .nav-label,
+  .sidebar:hover .nav-section-label,
+  .sidebar:hover .sidebar-title { display: block; }
+
+  /* إخفاء أعمدة الجدول بعد العمود الرابع */
+  .data-table-wrapper table th:nth-child(n+5),
+  .data-table-wrapper table td:nth-child(n+5) { display: none; }
+
+  /* صف الفورم — شبكة عمودين */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}
