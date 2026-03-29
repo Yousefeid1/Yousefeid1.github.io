@@ -110,15 +110,15 @@ function confirmDelete(message = 'هل أنت متأكد من الحذف؟ لا 
 const ROLE_PAGES = {
   'مدير عام':        null, // null = all pages visible
   'مدير':            null,
-  'محاسب':           ['dashboard', 'journal', 'accounts', 'trial-balance', 'payments', 'expenses', 'report-pl', 'report-bs', 'report-waste', 'report-inventory', 'settings', 'notifications'],
-  'موظف مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'crm', 'notifications'],
-  'مدير مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'crm', 'payments', 'report-pl', 'notifications'],
+  'محاسب':           ['dashboard', 'journal', 'accounts', 'trial-balance', 'payments', 'expenses', 'report-pl', 'report-bs', 'report-waste', 'report-inventory', 'cost-centers', 'checks', 'year-closing', 'recurring-entries', 'settings', 'notifications'],
+  'موظف مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'crm', 'export', 'notifications'],
+  'مدير مبيعات':    ['dashboard', 'sales', 'customers', 'aging', 'quotations', 'crm', 'export', 'payments', 'report-pl', 'notifications'],
   'موظف مشتريات':  ['dashboard', 'purchases', 'suppliers', 'payments', 'notifications'],
-  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'notifications'],
-  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'report-waste', 'report-inventory', 'notifications'],
-  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'products', 'notifications'],
-  'موظف لوجستيك':  ['dashboard', 'warehouses', 'shipments', 'shipment-report', 'notifications'],
-  'مدير قسم':       ['dashboard', 'employees', 'activity-log', 'sales', 'customers', 'crm', 'report-pl', 'notifications'],
+  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'products', 'notifications'],
+  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'cost-centers', 'products', 'report-waste', 'report-inventory', 'notifications'],
+  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'products', 'notifications'],
+  'موظف لوجستيك':  ['dashboard', 'warehouses', 'shipments', 'shipment-report', 'export', 'notifications'],
+  'مدير قسم':       ['dashboard', 'employees', 'activity-log', 'sales', 'customers', 'crm', 'export', 'report-pl', 'notifications'],
   'موظف عادي':      ['dashboard', 'notifications'],
 };
 
@@ -282,10 +282,14 @@ const pageTitles = {
   'shipments':        'الشحن والتوصيل',
   'shipment-report':  'تقارير التصدير',
   'quotations':       'عروض الأسعار',
-  'cost-centers':     'مراكز التكلفة الفعلية',
-  'export':           'نظام التصدير',
-  'quality':          'إدارة الجودة',
-  'crm':              'إدارة علاقات العملاء',
+  'cost-centers':       'مراكز التكلفة الفعلية',
+  'export':             'نظام التصدير',
+  'quality':            'إدارة الجودة',
+  'crm':                'إدارة علاقات العملاء',
+  'manufacturing':      'مراحل التصنيع',
+  'checks':             'إدارة الشيكات',
+  'year-closing':       'إغلاق السنة المالية',
+  'recurring-entries':  'القيود المتكررة',
 };
 
 // Track current page for real-time refresh
@@ -349,6 +353,10 @@ function showPage(pageName) {
     'export':           renderExport,
     'quality':          renderQuality,
     'crm':              renderCrm,
+    'manufacturing':    renderManufacturing,
+    'checks':           renderChecks,
+    'year-closing':     renderYearClosing,
+    'recurring-entries': renderRecurringEntries,
   };
 
   if (renders[pageName]) renders[pageName]();
@@ -379,6 +387,10 @@ function _scheduleRefresh() {
         'export': renderExport,
         'quality': renderQuality,
         'crm': renderCrm,
+        'manufacturing': renderManufacturing,
+        'checks': renderChecks,
+        'year-closing': renderYearClosing,
+        'recurring-entries': renderRecurringEntries,
       };
       if (renders[_currentPage]) renders[_currentPage]();
       loadNotifications();
