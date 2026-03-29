@@ -78,7 +78,7 @@ function addCrmInteraction(customerId, interaction) {
     date:      interaction.date || new Date().toISOString().split('T')[0],
     type:      interaction.type      || 'call',
     summary:   interaction.summary   || '',
-    createdBy: interaction.createdBy || (typeof currentUser !== 'undefined' && currentUser ? currentUser.name : 'النظام'),
+    createdBy: interaction.createdBy ?? (currentUser?.name ?? 'النظام'),
   };
   record.interactions.push(newInteraction);
   DB.save('crm_customers', record);
