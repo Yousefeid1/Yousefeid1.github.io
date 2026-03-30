@@ -245,7 +245,7 @@ async function renderSlabs() {
           <table>
             <thead><tr>
               <th>الكود</th><th>كود البلوك</th><th>النوع</th><th>الدرجة</th>
-              <th>العرض (سم)</th><th>الارتفاع (سم)</th><th>السماكة (سم)</th><th>المساحة (م²)</th><th>الحالة</th>
+              <th>العرض (سم)</th><th>الارتفاع (سم)</th><th>السماكة (سم)</th><th>المساحة (م²)</th><th>الحالة</th><th>QR</th>
             </tr></thead>
             <tbody id="slab-tbody">${renderSlabRows(slabs)}</tbody>
           </table>
@@ -259,8 +259,12 @@ async function renderSlabs() {
 }
 
 function renderSlabRows(slabs) {
-  if (!slabs.length) return `<tr><td colspan="9"><div class="empty-state" style="padding:40px"><div class="empty-icon">▥</div><h3>لا توجد ألواح</h3></div></td></tr>`;
-  return slabs.map(s => `
+  if (!slabs.length) return `<tr><td colspan="10"><div class="empty-state" style="padding:40px"><div class="empty-icon">▥</div><h3>لا توجد ألواح</h3></div></td></tr>`;
+  return slabs.map(s => {
+    // تخزين بيانات اللوح مؤقتاً بمفتاح فريد لتجنب مشكلات الاقتباس في HTML
+    const key = '_slab_' + s.id;
+    window[key] = s;
+    return `
     <tr>
       <td class="number"><strong>${s.code}</strong></td>
       <td class="number">${s.block_code}</td>
@@ -271,8 +275,10 @@ function renderSlabRows(slabs) {
       <td class="number">${s.thickness}</td>
       <td class="number"><strong>${s.area_m2.toFixed(2)}</strong></td>
       <td>${statusBadge(s.status)}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="generateSlabQR(window['${key}'])">QR</button></td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 async function filterSlabs() {
@@ -336,4 +342,69 @@ function exportSlabsExcel() {
   const rows = slabs.map(s => [s.code, s.block_code, s.type, s.grade, s.width, s.height, s.thickness, s.area_m2, statusLabel[s.status] || s.status]);
   const totalArea = slabs.filter(s => s.status === 'in_stock').reduce((sum, s) => sum + s.area_m2, 0);
   exportGenericExcel({ sheetName: 'الألواح', headers, rows, totalsRow: ['', '', '', '', '', '', 'المتاح (م²)', totalArea, ''], filename: `slabs-${new Date().toISOString().split('T')[0]}.xlsx` });
+}
+
+// ===== QR Code للألواح =====
+function generateSlabQR(slabJson) {
+  var slab = typeof slabJson === 'string'
+    ? JSON.parse(slabJson) : slabJson;
+
+  var qrData = JSON.stringify({
+    id:    slab.id,
+    code:  slab.code,
+    type:  slab.type  || slab.stoneType,
+    dims:  (slab.width || '') + 'x' + (slab.height || ''),
+    thick: slab.thickness,
+    grade: slab.grade || slab.qualityGrade,
+    block: slab.block_code || slab.blockId,
+    stat:  slab.status
+  });
+
+  // إزالة أي نافذة QR مفتوحة سابقاً
+  var existing = document.getElementById('_qrOverlay');
+  if (existing) existing.remove();
+
+  var ov = document.createElement('div');
+  ov.id = '_qrOverlay';
+  ov.setAttribute('style',
+    'position:fixed;inset:0;background:rgba(0,0,0,.6);' +
+    'z-index:9990;display:flex;align-items:center;' +
+    'justify-content:center;direction:rtl');
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:12px;padding:24px;text-align:center;min-width:260px">' +
+    '<h3 style="margin-bottom:8px;color:#333">QR كود اللوح</h3>' +
+    '<p style="font-size:12px;color:#666;margin-bottom:12px">' + (slab.code || '') + '</p>' +
+    '<div id="_qrBox" style="display:inline-block;margin-bottom:16px"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:center">' +
+    '<button onclick="printSlabQR()" style="padding:8px 16px;background:#c8a96e;color:#fff;border:none;border-radius:6px;cursor:pointer">🖨 طباعة</button>' +
+    '<button onclick="document.getElementById(\'_qrOverlay\').remove()" style="padding:8px 16px;background:#eee;color:#333;border:none;border-radius:6px;cursor:pointer">إغلاق</button>' +
+    '</div></div>';
+  document.body.appendChild(ov);
+
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(document.getElementById('_qrBox'), {
+      text: qrData, width: 200, height: 200
+    });
+  } else {
+    document.getElementById('_qrBox').textContent =
+      'مكتبة QR غير محملة';
+  }
+}
+
+function printSlabQR() {
+  var canvas = document.querySelector('#_qrBox canvas');
+  if (!canvas) { showToast('تعذر إنشاء QR', 'error'); return; }
+  var w = window.open('');
+  w.document.write(
+    '<html><head><title>QR اللوح</title>' +
+    '<style>body{text-align:center;font-family:Arial,sans-serif;padding:20px}' +
+    'img{display:block;margin:12px auto}p{margin:4px}</style>' +
+    '</head><body>' +
+    '<p>نظام ERP — الرخام والجرانيت</p>' +
+    '<img src="' + canvas.toDataURL() + '">' +
+    '<p>' + formatDate(new Date().toISOString()) + '</p>' +
+    '</body></html>'
+  );
+  w.document.close();
+  setTimeout(function() { w.print(); w.close(); }, 500);
 }

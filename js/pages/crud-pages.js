@@ -389,6 +389,53 @@ async function renderSettings() {
         <p style="color:var(--text-secondary);margin-bottom:12px">حذف جميع البيانات المحفوظة وإعادة البيانات التجريبية الافتراضية</p>
         <button class="btn btn-danger" onclick="resetAllData()">⚠ إعادة تعيين جميع البيانات</button>
       </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">📨 إشعارات تيليجرام</span></div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+          أنشئ Bot عبر @BotFather ← احصل على Token
+          ← أضف البوت لمجموعتك ← احصل على Chat ID
+        </p>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group">
+            <label>Bot Token</label>
+            <input type="password" id="tgToken" class="form-control"
+                   placeholder="123456:ABC-DEF..."
+                   value="${s.telegramBotToken || ''}">
+          </div>
+          <div class="form-group">
+            <label>Chat ID</label>
+            <input type="text" id="tgChatId" class="form-control"
+                   placeholder="-100123456789 أو @channel"
+                   value="${s.telegramChatId || ''}">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="tgNewSale" ${s.tgNotifyNewSale ? 'checked' : ''}> تنبيه فاتورة مبيعات جديدة
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="tgLowStock" ${s.tgNotifyLowStock ? 'checked' : ''}> تنبيه مخزون منخفض
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="tgOverdue" ${s.tgNotifyOverdue ? 'checked' : ''}> تنبيه فواتير متأخرة
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="tgChecks" ${s.tgNotifyChecks ? 'checked' : ''}> تنبيه شيكات مستحقة
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="tgDailyReport" ${s.enableDailyReport ? 'checked' : ''}> تقرير يومي تلقائي عند فتح النظام
+          </label>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="saveTelegramSettings()">
+            حفظ الإعدادات
+          </button>
+          <button class="btn btn-secondary" onclick="testTelegramConnection()">
+            اختبار الاتصال
+          </button>
+        </div>
+      </div>
     `;
   } catch (e) {
     content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
@@ -418,6 +465,86 @@ function resetAllData() {
   localStorage.removeItem('marble_user');
   toast('تم إعادة تعيين البيانات - يتم إعادة التحميل...', 'warning');
   setTimeout(() => location.reload(), 1500);
+}
+
+// ===== إعدادات بوت تيليجرام =====
+async function sendTelegramNotification(message) {
+  const s = DB.get('settings') || {};
+  if (!s.telegramBotToken || !s.telegramChatId) return;
+  try {
+    await fetch(
+      'https://api.telegram.org/bot' +
+      s.telegramBotToken + '/sendMessage',
+      {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id:    s.telegramChatId,
+          text:       message,
+          parse_mode: 'HTML'
+        })
+      }
+    );
+  } catch (e) {
+    console.warn('Telegram send failed:', e.message);
+  }
+}
+
+function saveTelegramSettings() {
+  const token  = document.getElementById('tgToken')?.value?.trim();
+  const chatId = document.getElementById('tgChatId')?.value?.trim();
+  if (!token || !chatId) {
+    showToast('يرجى إدخال الـ Token والـ Chat ID', 'warning');
+    return;
+  }
+  const s = DB.get('settings') || {};
+  s.telegramBotToken      = token;
+  s.telegramChatId        = chatId;
+  s.tgNotifyLowStock      = document.getElementById('tgLowStock')?.checked  || false;
+  s.tgNotifyOverdue       = document.getElementById('tgOverdue')?.checked   || false;
+  s.tgNotifyChecks        = document.getElementById('tgChecks')?.checked    || false;
+  s.tgNotifyNewSale       = document.getElementById('tgNewSale')?.checked   || false;
+  s.enableDailyReport     = document.getElementById('tgDailyReport')?.checked || false;
+  DB.set('settings', s);
+  showToast('تم حفظ إعدادات تيليجرام ✓', 'success');
+}
+
+async function testTelegramConnection() {
+  const s = DB.get('settings') || {};
+  if (!s.telegramBotToken || !s.telegramChatId) {
+    showToast('يرجى حفظ الإعدادات أولاً', 'warning'); return;
+  }
+  await sendTelegramNotification(
+    '✅ <b>اختبار الاتصال</b>\n' +
+    'نظام ERP الرخام والجرانيت متصل بنجاح!\n' +
+    'الوقت: ' + formatDate(new Date().toISOString(), true)
+  );
+  showToast('تم إرسال رسالة اختبار — تحقق من تيليجرام', 'success');
+}
+
+function checkAndSendDailyReport() {
+  const s    = DB.get('settings') || {};
+  if (!s.telegramBotToken || !s.enableDailyReport) return;
+  const today = new Date().toISOString().slice(0, 10);
+  if (localStorage.getItem('_lastDailyReport') === today) return;
+
+  const sales = DB.getAll('sales');
+  const pays  = DB.getAll('payments');
+  const todaySales = sales
+    .filter(i => (i.invoice_date || i.date || '').slice(0, 10) === today)
+    .reduce((sum, i) => sum + (i.total_amount || i.total || 0), 0);
+  const todayReceipts = pays
+    .filter(p => (p.date || '').slice(0, 10) === today && p.type === 'receipt')
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  sendTelegramNotification(
+    '📊 <b>ملخص اليوم</b>\n' +
+    'المبيعات: ' + formatCurrency(todaySales) + '\n' +
+    'المتحصلات: ' + formatCurrency(todayReceipts) + '\n' +
+    'الفواتير: ' + sales.filter(i => (i.invoice_date || i.date || '').slice(0, 10) === today).length + '\n' +
+    'التاريخ: ' + formatDate(today)
+  );
+  localStorage.setItem('_lastDailyReport', today);
 }
 
 // ===== NOTIFICATIONS =====

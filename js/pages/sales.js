@@ -314,7 +314,7 @@ async function saveSale() {
   if (!items.length) { toast('أضف بندًا واحدًا على الأقل', 'error'); return; }
   const subtotal = items.reduce((s, i) => s + i.subtotal, 0);
   const tax      = subtotal * 0.14;
-  await api.createSale({
+  const invoice = await api.createSale({
     customer_id:   parseInt(custEl.value),
     customer:      custEl.options[custEl.selectedIndex].dataset.name,
     invoice_date:  document.getElementById('ns-date').value,
@@ -328,6 +328,16 @@ async function saveSale() {
   });
   closeModal();
   toast('تم حفظ الفاتورة بنجاح', 'success');
+  // إرسال إشعار تيليجرام عند حفظ فاتورة مبيعات جديدة
+  const _tgS = DB.get('settings') || {};
+  if (_tgS.tgNotifyNewSale) {
+    sendTelegramNotification(
+      '🧾 <b>فاتورة مبيعات جديدة</b>\n' +
+      'العميل: ' + (custEl.options[custEl.selectedIndex].dataset.name || '') + '\n' +
+      'الإجمالي: ' + formatCurrency(subtotal + tax) + '\n' +
+      'التاريخ: ' + formatDate(document.getElementById('ns-date').value)
+    );
+  }
   renderSales();
 }
 
