@@ -552,7 +552,17 @@ const api = {
   async createSale(d) {
     const id  = DB.nextId('sales');
     const num = `INV-${new Date().getFullYear()}-${String(id).padStart(3, '0')}`;
-    const sale = DB.save('sales', attachExchangeRate({ ...d, id, invoice_number: num, paid_amount: d.paid_amount || 0, status: d.status || 'draft' }));
+    // نظام الموافقات: إذا تجاوزت الفاتورة الحد وكان المستخدم غير مدير → pending_approval
+    let status = d.status || 'draft';
+    const s = DB.get('settings') || {};
+    const approvalLimit = parseFloat(s.approval_limit || 0);
+    const userRole = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    const isManagerRole = ['مدير عام', 'مدير', 'مدير مبيعات', 'مدير قسم'].includes(userRole);
+    if (approvalLimit > 0 && (d.total_amount || 0) > approvalLimit && !isManagerRole && status === 'draft') {
+      status = 'pending_approval';
+      DB.save('notifications', { id: DB.nextId('notifications'), title: 'فاتورة معلقة للموافقة', message: `الفاتورة ${num} (${d.customer}) - ${formatMoney(d.total_amount)} تحتاج موافقة المدير`, type: 'warning', is_read: false, created_at: new Date().toISOString() });
+    }
+    const sale = DB.save('sales', attachExchangeRate({ ...d, id, invoice_number: num, paid_amount: d.paid_amount || 0, status }));
     this.logActivity('create', 'sale', id, `فاتورة مبيعات: ${num} - ${d.customer}`);
     return sale;
   },
@@ -561,17 +571,34 @@ const api = {
     if (s) { s.status = 'cancelled'; DB.save('sales', s); this.logActivity('update', 'sale', parseInt(id), `إلغاء فاتورة: ${s.invoice_number}`); }
     return s;
   },
+  async approveSale(id) {
+    const s = DB.findById('sales', id);
+    if (!s) throw new Error('الفاتورة غير موجودة');
+    s.status = 'draft';
+    DB.save('sales', s);
+    this.logActivity('update', 'sale', parseInt(id), `موافقة على الفاتورة ${s.invoice_number}`);
+    return s;
+  },
+  async rejectSale(id, reason) {
+    const s = DB.findById('sales', id);
+    if (!s) throw new Error('الفاتورة غير موجودة');
+    s.status = 'rejected';
+    s.notes = (s.notes ? s.notes + '\n' : '') + 'سبب الرفض: ' + (reason || '');
+    DB.save('sales', s);
+    this.logActivity('update', 'sale', parseInt(id), `رفض الفاتورة ${s.invoice_number}: ${reason}`);
+    return s;
+  },
   async updateSaleStatus(id, newStatus) {
     const s = DB.findById('sales', id);
     if (!s) throw new Error('الفاتورة غير موجودة');
-    const allowedStatuses = ['draft', 'sent', 'partial', 'paid', 'cancelled', 'rejected'];
+    const allowedStatuses = ['draft', 'sent', 'partial', 'paid', 'cancelled', 'rejected', 'pending_approval'];
     if (!allowedStatuses.includes(newStatus)) throw new Error('حالة غير صالحة');
     const oldStatus = s.status;
     s.status = newStatus;
     DB.save('sales', s);
     this.logActivity('update', 'sale', parseInt(id), `تغيير حالة فاتورة ${s.invoice_number}: ${oldStatus} ← ${newStatus}`);
     // Add notification for status change
-    const notifMsg = `تم تغيير حالة الفاتورة ${s.invoice_number} (${s.customer}) إلى: ${{ draft:'مسودة', sent:'مرسلة', partial:'جزئي مدفوع', paid:'مدفوعة', cancelled:'ملغاة', rejected:'مرفوضة' }[newStatus] || newStatus}`;
+    const notifMsg = `تم تغيير حالة الفاتورة ${s.invoice_number} (${s.customer}) إلى: ${{ draft:'مسودة', sent:'مرسلة', partial:'جزئي مدفوع', paid:'مدفوعة', cancelled:'ملغاة', rejected:'مرفوضة', pending_approval:'معلقة للموافقة' }[newStatus] || newStatus}`;
     DB.save('notifications', { id: DB.nextId('notifications'), title: 'تغيير حالة فاتورة', message: notifMsg, type: newStatus === 'paid' ? 'success' : newStatus === 'rejected' || newStatus === 'cancelled' ? 'danger' : 'warning', is_read: false, created_at: new Date().toISOString() });
     return s;
   },

@@ -313,6 +313,9 @@ async function renderDashboard() {
       <!-- ===== التنبيهات الذكية ===== -->
       <div id="alertsContainer" style="margin-bottom:12px"></div>
 
+      <!-- ===== فواتير معلقة للموافقة (للمديرين فقط) ===== -->
+      <div id="pendingApprovalsContainer" style="margin-bottom:12px"></div>
+
       <!-- ===== مؤشرات الإنتاج ===== -->
       <div id="productionKPIsContainer" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px"></div>
 
@@ -523,6 +526,34 @@ async function renderDashboard() {
       }
     }
 
+    // ===== فواتير معلقة للموافقة (للمديرين فقط) =====
+    if (isManager()) {
+      var pendingApproval = DB.getAll('sales').filter(function(inv) { return inv.status === 'pending_approval'; });
+      var paEl = document.getElementById('pendingApprovalsContainer');
+      if (paEl && pendingApproval.length > 0) {
+        paEl.innerHTML = '<div class="card" style="border-right:3px solid var(--accent);padding:12px 16px">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+          '<span style="font-size:16px">⏳</span>' +
+          '<strong>فواتير معلقة للموافقة</strong>' +
+          '<span class="badge badge-warning">' + pendingApproval.length + '</span>' +
+          '</div>' +
+          '<table class="data-table"><thead><tr><th>رقم الفاتورة</th><th>العميل</th><th>المبلغ</th><th>الإجراء</th></tr></thead><tbody>' +
+          pendingApproval.map(function(inv) {
+            return '<tr>' +
+              '<td class="number">' + inv.invoice_number + '</td>' +
+              '<td>' + (inv.customer || '') + '</td>' +
+              '<td class="number">' + formatMoney(inv.total_amount) + '</td>' +
+              '<td>' +
+              '<button class="btn btn-success btn-sm" style="margin-left:4px" onclick="approveSaleInvoice(' + inv.id + ')">✓ موافقة</button>' +
+              '<button class="btn btn-danger btn-sm" onclick="rejectSaleInvoice(' + inv.id + ')">✗ رفض</button>' +
+              '</td>' +
+              '</tr>';
+          }).join('') +
+          '</tbody></table>' +
+          '</div>';
+      }
+    }
+
     // ===== ملء مؤشرات الإنتاج =====
     var prodKPIsEl = document.getElementById('productionKPIsContainer');
     if (prodKPIsEl) {
@@ -585,4 +616,23 @@ async function renderDashboard() {
   } catch (e) {
     content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
   }
+}
+
+// ===== الموافقة على فاتورة من لوحة التحكم =====
+async function approveSaleInvoice(id) {
+  try {
+    await api.approveSale(id);
+    toast('تمت الموافقة على الفاتورة', 'success');
+    renderDashboard();
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function rejectSaleInvoice(id) {
+  const reason = prompt('سبب الرفض:');
+  if (reason === null) return;
+  try {
+    await api.rejectSale(id, reason);
+    toast('تم رفض الفاتورة', 'warning');
+    renderDashboard();
+  } catch(e) { toast(e.message, 'error'); }
 }

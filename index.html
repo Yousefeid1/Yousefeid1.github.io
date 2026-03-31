@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -121,6 +122,9 @@
       <a class="nav-item" onclick="showPage('manufacturing')" data-page="manufacturing">
         <span class="nav-icon">⚙️</span><span class="nav-label">مراحل التصنيع</span>
       </a>
+      <a class="nav-item" onclick="showPage('machines')" data-page="machines">
+        <span class="nav-icon">🏭</span><span class="nav-label">تتبع الماكينات</span>
+      </a>
       <a class="nav-item" onclick="showPage('quality')" data-page="quality">
         <span class="nav-icon">✦</span><span class="nav-label">إدارة الجودة</span>
       </a>
@@ -163,6 +167,9 @@
       </a>
       <a class="nav-item" onclick="showPage('report-customer-credit')" data-page="report-customer-credit">
         <span class="nav-icon">💳</span><span class="nav-label">مديونية العملاء</span>
+      </a>
+      <a class="nav-item" onclick="showPage('report-project-profit')" data-page="report-project-profit">
+        <span class="nav-icon">📈</span><span class="nav-label">ربحية المشاريع</span>
       </a>
 
       <div class="nav-section-label">اللوجستيك</div>
@@ -260,6 +267,7 @@
 <script src="js/pages/export.js"></script>
 <script src="js/pages/quality.js"></script>
 <script src="js/pages/crm.js"></script>
+<script src="js/pages/machines.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

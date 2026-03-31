@@ -672,6 +672,7 @@ function showPageError(pageName, msg) {
 
 function statusBadge(status) {
   const map = {
+    'pending_approval': ['badge-warning', 'معلقة للموافقة'],
     'draft':      ['badge-warning', 'مسودة'],
     'sent':       ['badge-info',    'مرسلة'],
     'partial':    ['badge-warning', 'جزئي'],

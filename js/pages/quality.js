@@ -658,6 +658,7 @@ function _renderListRows(records) {
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-secondary btn-sm" onclick="openQualityModal(${r.id})">تعديل</button>
+          <button class="btn btn-secondary btn-sm" onclick="showQualityQR(${r.id})">QR</button>
           <button class="btn btn-danger btn-sm" onclick="deleteQualityRecord(${r.id})">حذف</button>
         </div>
       </td>
@@ -1325,4 +1326,82 @@ function deleteQualityRecord(id) {
   }
   toast('تم حذف السجل بنجاح', 'success');
   renderQuality();
+}
+
+// ===== عرض QR Code لسجل الجودة =====
+function showQualityQR(id) {
+  const r = DB.findById('quality_records', id);
+  if (!r) { toast('السجل غير موجود', 'error'); return; }
+  const qrData = JSON.stringify({
+    code:      r.slabCode,
+    grade:     r.qualityGrade,
+    dimensions: (r.areaM2 || 0).toFixed(2) + ' م²',
+    thickness:  r.thickness,
+    color:      r.color,
+    warehouse:  r.warehouse,
+    price:      r.costByGrade || 0,
+    status:     r.status,
+    inspDate:   r.inspectionDate,
+  });
+
+  openModal('QR Code — ' + (r.slabCode || 'لوح'), `
+    <div style="text-align:center;padding:16px">
+      <div id="quality-qr-canvas" style="display:inline-block;padding:16px;background:#fff;border-radius:8px;margin-bottom:16px"></div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        <strong>${r.slabCode || '—'}</strong> | جودة: <strong>${r.qualityGrade}</strong>
+        | مساحة: <strong>${(r.areaM2 || 0).toFixed(2)} م²</strong>
+        | مستودع: <strong>${r.warehouse || '—'}</strong>
+        | سعر: <strong>${formatMoney(r.costByGrade || 0)}</strong>
+      </div>
+      <button class="btn btn-primary" onclick="_printQualityQR(${id})">🖨 طباعة</button>
+    </div>
+  `);
+
+  setTimeout(() => {
+    const container = document.getElementById('quality-qr-canvas');
+    if (!container) return;
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(container, {
+        text:   qrData,
+        width:  180,
+        height: 180,
+        colorDark:  '#000',
+        colorLight: '#fff',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    } else {
+      container.innerHTML = '<p style="color:var(--danger);font-size:12px">مكتبة QR غير محملة</p>';
+    }
+  }, 100);
+}
+
+function _printQualityQR(id) {
+  const r = DB.findById('quality_records', id);
+  if (!r) return;
+  const canvas = document.querySelector('#quality-qr-canvas canvas') || document.querySelector('#quality-qr-canvas img');
+  const qrSrc  = canvas ? (canvas.tagName === 'CANVAS' ? canvas.toDataURL() : canvas.src) : '';
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html dir="rtl"><head><title>ملصق لوح — ${r.slabCode || ''}</title>
+    <style>
+      body { font-family: Cairo, Arial, sans-serif; direction: rtl; margin: 0; padding: 20px; }
+      .label-card { border: 2px solid #333; border-radius: 8px; padding: 20px; max-width: 320px; margin: 0 auto; text-align: center; }
+      h2 { margin: 0 0 8px; font-size: 22px; }
+      p  { margin: 4px 0; font-size: 14px; }
+      img { width: 160px; height: 160px; }
+    </style></head><body>
+    <div class="label-card">
+      ${qrSrc ? `<img src="${qrSrc}" alt="QR">` : ''}
+      <h2>${r.slabCode || '—'}</h2>
+      <p>الجودة: <strong>${r.qualityGrade}</strong></p>
+      <p>المساحة: ${(r.areaM2 || 0).toFixed(2)} م²</p>
+      <p>السماكة: ${r.thickness || '—'} سم</p>
+      <p>المستودع: ${r.warehouse || '—'}</p>
+      <p>السعر: ${formatMoney(r.costByGrade || 0)}</p>
+      <p style="color:#666;font-size:12px">تاريخ الفحص: ${r.inspectionDate || '—'}</p>
+    </div>
+    <script>window.onload = function(){ window.print(); window.close(); }<\/script>
+    </body></html>
+  `);
+  w.document.close();
 }
