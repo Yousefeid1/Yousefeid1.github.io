@@ -11,6 +11,9 @@ function isSalespersonOnly() {
   return role === 'موظف مبيعات';
 }
 
+// Roles that can be assigned as salesperson on an invoice
+const SALES_ASSIGNABLE_ROLES = ['موظف مبيعات', 'مدير مبيعات', 'مدير عام', 'مدير'];
+
 async function renderSales(page) {
   if (page) _salesPage = page;
   const content = document.getElementById('page-content');
@@ -240,7 +243,7 @@ async function viewSaleDetail(id) {
 function openNewSaleModal() {
   const customers = window._customersData || [];
   const users     = window._salesUsersData || [];
-  const salespeople = users.filter(u => ['موظف مبيعات', 'مدير مبيعات', 'مدير عام', 'مدير'].includes(u.role));
+  const salespeople = users.filter(u => SALES_ASSIGNABLE_ROLES.includes(u.role));
   const isSP = isSalespersonOnly();
 
   // For salesperson, pre-fill their own name; for manager, show dropdown

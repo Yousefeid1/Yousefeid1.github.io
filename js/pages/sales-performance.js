@@ -2,6 +2,16 @@
 // وحدة أداء المبيعات – Sales Performance Module
 // ============================================
 
+// isSalespersonOnly is defined in sales.js which loads first; provide a fallback
+// in case this module is ever loaded standalone.
+if (typeof isSalespersonOnly === 'undefined') {
+  // eslint-disable-next-line no-inner-declarations
+  function isSalespersonOnly() {
+    const role = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.role : '';
+    return role === 'موظف مبيعات';
+  }
+}
+
 async function renderSalesPerformance() {
   const content = document.getElementById('page-content');
   content.innerHTML = '<div class="loader"></div>';
@@ -224,7 +234,7 @@ function _drawMonthlyTrendChart(monthlyTrend) {
       responsive: true,
       plugins: { legend: { display: false } },
       scales: {
-        y: { ticks: { callback: v => formatMoney(v).replace(' EGP','') } },
+        y: { ticks: { callback: v => (v / 1000).toFixed(1) + 'k' } },
         x: { ticks: { font: { size: 10 } } }
       }
     }

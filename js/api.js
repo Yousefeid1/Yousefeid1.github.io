@@ -1070,7 +1070,7 @@ const api = {
     const sp = DB.findById('users', sale.salesperson_id);
     const rate = parseFloat(sp?.commission_rate || 0);
     if (rate <= 0) return;
-    const amount = parseFloat(((sale.total_amount || 0) * rate / 100).toFixed(2));
+    const amount = Math.round((sale.total_amount || 0) * rate) / 100;
     DB.save('commissions', {
       id:               DB.nextId('commissions'),
       sale_id:          sale.id,
