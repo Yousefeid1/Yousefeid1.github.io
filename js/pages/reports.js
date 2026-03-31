@@ -561,7 +561,55 @@ function renderReportCashFlow() {
         </div>
       </div>
     </div>
+
+    <!-- توقعات التدفق النقدي للـ 90 يوم -->
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><span class="card-title">🔮 توقعات التدفق النقدي — 90 يوماً قادماً</span></div>
+      <canvas id="cf-forecast-chart" height="80"></canvas>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:0 8px">
+        يعتمد على مواعيد استحقاق الفواتير غير المسددة والشيكات المعلقة
+      </p>
+    </div>
   `;
+
+  // رسم مخطط التوقعات
+  const forecast = _renderCashFlowForecast();
+  const fctx = document.getElementById('cf-forecast-chart');
+  if (fctx && forecast.labels.length > 0) {
+    _registerChart('cf-forecast', new Chart(fctx.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: forecast.labels,
+        datasets: [{
+          label: 'الرصيد المتوقع (ج.م)',
+          data: forecast.balances,
+          borderColor: '#c8a96e',
+          backgroundColor: forecast.balances.map(v => v >= 0 ? 'rgba(29,158,117,0.2)' : 'rgba(226,75,74,0.2)'),
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } } },
+        scales: {
+          x: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } },
+          y: {
+            ticks: { color: '#8892aa' },
+            grid: { color: 'rgba(42,47,63,0.8)' },
+            afterDataLimits: scale => {
+              const max = Math.max(...forecast.balances);
+              const min = Math.min(...forecast.balances);
+              scale.max = max + Math.abs(max) * 0.1;
+              scale.min = min - Math.abs(min) * 0.1;
+            }
+          }
+        }
+      }
+    }));
+  }
 }
 
 // ============================================
@@ -1114,6 +1162,7 @@ function renderReportCustomerCredit() {
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" onclick="exportCCExcel()">📊 Excel</button>
         <button class="btn btn-secondary" onclick="exportCCPDF()">📄 PDF</button>
+        <button class="btn btn-primary" onclick="openBulkReminderModal()">📧 تذكير جماعي</button>
       </div>
     </div>
 
@@ -1123,16 +1172,28 @@ function renderReportCustomerCredit() {
         <div class="value">${formatMoney(totalBalance)}</div>
       </div>
       <div class="summary-box">
-        <div class="label">عدد العملاء</div>
-        <div class="value">${customers.length}</div>
+        <div class="label">جارية (Current)</div>
+        <div class="value">${formatMoney(rows.reduce((s,r) => s + Math.max(0, r.balance) * ((!r.oldest || (new Date()-new Date(r.oldest.invoice_date))/86400000 <= 0) ? 1 : 0), 0))}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">1 - 30 يوم</div>
+        <div class="value">${formatMoney(rows.filter(r=>r.oldest && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) <= 30).reduce((s,r)=>s+r.balance,0))}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">31 - 60 يوم</div>
+        <div class="value">${formatMoney(rows.filter(r=>r.oldest && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) > 30 && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) <= 60).reduce((s,r)=>s+r.balance,0))}</div>
+      </div>
+      <div class="summary-box">
+        <div class="label">61 - 90 يوم</div>
+        <div class="value">${formatMoney(rows.filter(r=>r.oldest && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) > 60 && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) <= 90).reduce((s,r)=>s+r.balance,0))}</div>
+      </div>
+      <div class="summary-box loss">
+        <div class="label">أكثر من 90 يوم</div>
+        <div class="value">${formatMoney(rows.filter(r=>r.oldest && Math.floor((new Date()-new Date(r.oldest.invoice_date))/86400000) > 90).reduce((s,r)=>s+r.balance,0))}</div>
       </div>
       <div class="summary-box ${breachedCount > 0 ? 'loss' : 'profit'}">
         <div class="label">تجاوزو حد الائتمان</div>
         <div class="value">${breachedCount}</div>
-      </div>
-      <div class="summary-box profit">
-        <div class="label">لا توجد ديون مستحقة</div>
-        <div class="value">${rows.filter(r => r.balance <= 0).length}</div>
       </div>
     </div>
 
@@ -1363,3 +1424,216 @@ function exportInventoryExcel() {
   const totalsRow = ['', 'الإجمالي', '', '', '', '', '', totalVal];
   exportGenericExcel({ sheetName: 'تقرير المخزون', headers, rows, totalsRow, filename: `inventory-${new Date().toISOString().split('T')[0]}.xlsx` });
 }
+
+// ============================================
+// تقرير ربحية المشاريع
+// ============================================
+function renderReportProjectProfit() {
+  const content = document.getElementById('page-content');
+  _destroyActiveCharts();
+
+  const sales     = DB.getAll('sales').filter(s => s.status !== 'cancelled');
+  const purchases = DB.getAll('purchases');
+  const expenses  = DB.getAll('expenses');
+  const shipments = DB.getAll('shipments');
+
+  // جمع جميع project IDs
+  const projectIds = new Set([
+    ...sales.filter(s => s.project_id).map(s => s.project_id),
+    ...purchases.filter(p => p.project_id).map(p => p.project_id),
+    ...expenses.filter(e => e.project_id).map(e => e.project_id),
+  ]);
+
+  // إذا لم يكن هناك project_id، نجمع بدلاً من ذلك حسب العميل
+  const customerMap = {};
+  sales.forEach(s => {
+    const key = s.customer || 'غير محدد';
+    if (!customerMap[key]) customerMap[key] = { name: key, revenue: 0, expenses: 0, shipping: 0 };
+    customerMap[key].revenue += s.total_amount || 0;
+  });
+  purchases.filter(p => p.customer).forEach(p => {
+    const key = p.customer || 'غير محدد';
+    if (!customerMap[key]) customerMap[key] = { name: key, revenue: 0, expenses: 0, shipping: 0 };
+    customerMap[key].expenses += p.total_amount || 0;
+  });
+  expenses.forEach(e => {
+    const key = e.customer || e.category || 'متنوع';
+    if (!customerMap[key]) customerMap[key] = { name: key, revenue: 0, expenses: 0, shipping: 0 };
+    customerMap[key].expenses += e.amount || 0;
+  });
+  shipments.forEach(s => {
+    const key = s.customer || 'غير محدد';
+    if (!customerMap[key]) customerMap[key] = { name: key, revenue: 0, expenses: 0, shipping: 0 };
+    customerMap[key].shipping += s.freight_cost || s.cost || 0;
+  });
+
+  const rows = Object.values(customerMap)
+    .map(r => ({
+      ...r,
+      cost:   r.expenses + r.shipping,
+      profit: r.revenue - r.expenses - r.shipping,
+      margin: r.revenue > 0 ? ((r.revenue - r.expenses - r.shipping) / r.revenue * 100) : 0,
+    }))
+    .filter(r => r.revenue > 0 || r.cost > 0)
+    .sort((a, b) => b.profit - a.profit);
+
+  const totalRev  = rows.reduce((s, r) => s + r.revenue, 0);
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  const totalProfit = totalRev - totalCost;
+
+  content.innerHTML = `
+    <div class="page-header">
+      <div><h2>📈 تقرير ربحية المشاريع والعملاء</h2><p>تحليل الإيرادات والتكاليف وهامش الربح</p></div>
+    </div>
+
+    <div class="kpi-grid" style="margin-bottom:16px">
+      <div class="kpi-card gold"><div class="kpi-icon">💰</div><div class="kpi-value number">${formatMoney(totalRev)}</div><div class="kpi-label">إجمالي الإيرادات</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">💸</div><div class="kpi-value number">${formatMoney(totalCost)}</div><div class="kpi-label">إجمالي التكاليف</div></div>
+      <div class="kpi-card ${totalProfit >= 0 ? 'green' : 'red'}"><div class="kpi-icon">📊</div><div class="kpi-value number">${formatMoney(totalProfit)}</div><div class="kpi-label">صافي الربح</div></div>
+      <div class="kpi-card"><div class="kpi-icon">%</div><div class="kpi-value">${totalRev > 0 ? (totalProfit/totalRev*100).toFixed(1) : '0.0'}%</div><div class="kpi-label">هامش الربح الإجمالي</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">📊 مخطط مقارنة الربحية</span></div>
+      <canvas id="project-profit-chart" height="80"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><span class="card-title">📋 تفاصيل الربحية</span></div>
+      <div class="data-table-wrapper">
+        <table>
+          <thead><tr>
+            <th>العميل / المشروع</th>
+            <th>الإيرادات</th>
+            <th>تكاليف مباشرة</th>
+            <th>تكاليف شحن</th>
+            <th>إجمالي التكاليف</th>
+            <th>الربح الإجمالي</th>
+            <th>هامش الربح %</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>${r.name}</strong></td>
+                <td class="number text-success">${formatMoney(r.revenue)}</td>
+                <td class="number text-danger">${formatMoney(r.expenses)}</td>
+                <td class="number text-danger">${formatMoney(r.shipping)}</td>
+                <td class="number text-danger">${formatMoney(r.cost)}</td>
+                <td class="number ${r.profit >= 0 ? 'text-success' : 'text-danger'}">${formatMoney(r.profit)}</td>
+                <td class="number ${r.margin >= 0 ? 'text-success' : 'text-danger'}">${r.margin.toFixed(1)}%</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight:700;border-top:2px solid var(--border)">
+              <td>الإجمالي</td>
+              <td class="number text-success">${formatMoney(totalRev)}</td>
+              <td class="number text-danger">${formatMoney(rows.reduce((s,r)=>s+r.expenses,0))}</td>
+              <td class="number text-danger">${formatMoney(rows.reduce((s,r)=>s+r.shipping,0))}</td>
+              <td class="number text-danger">${formatMoney(totalCost)}</td>
+              <td class="number ${totalProfit>=0?'text-success':'text-danger'}">${formatMoney(totalProfit)}</td>
+              <td class="number">${totalRev > 0 ? (totalProfit/totalRev*100).toFixed(1) : '0.0'}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // رسم المخطط
+  if (rows.length > 0) {
+    const top10 = rows.slice(0, 10);
+    const ctx = document.getElementById('project-profit-chart');
+    if (ctx) {
+      _registerChart('project-profit', new Chart(ctx.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: top10.map(r => r.name.length > 12 ? r.name.substring(0,12)+'…' : r.name),
+          datasets: [
+            { label: 'الإيرادات', data: top10.map(r => r.revenue), backgroundColor: 'rgba(29,158,117,0.5)', borderColor: '#1d9e75', borderWidth: 2, borderRadius: 4 },
+            { label: 'التكاليف', data: top10.map(r => r.cost),    backgroundColor: 'rgba(226,75,74,0.5)',  borderColor: '#e24b4a', borderWidth: 2, borderRadius: 4 },
+            { label: 'الربح',    data: top10.map(r => r.profit),  backgroundColor: 'rgba(200,169,110,0.5)',borderColor: '#c8a96e', borderWidth: 2, borderRadius: 4 },
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } } },
+          scales: {
+            x: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } },
+            y: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } }
+          }
+        }
+      }));
+    }
+  }
+}
+
+// ============================================
+// تقرير التدفق النقدي المتوقع (90 يوم)
+// ============================================
+function _renderCashFlowForecast() {
+  const now = new Date();
+  const days = 90;
+  const dailyBalance = {};
+
+  // رصيد بداية
+  const accounts = DB.getAll('accounts');
+  const cashAcc  = accounts.filter(a => a.type === 'asset' && (a.name.includes('نقد') || a.name.includes('كاش') || a.name.includes('بنك')));
+  let startBalance = cashAcc.reduce((s,a) => s + (a.balance || 0), 0);
+
+  for (let i = 0; i <= days; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    dailyBalance[d.toISOString().slice(0,10)] = 0;
+  }
+
+  // فواتير مبيعات غير مسددة → إيرادات متوقعة
+  DB.getAll('sales')
+    .filter(s => s.status !== 'paid' && s.status !== 'cancelled' && s.due_date)
+    .forEach(s => {
+      const key = s.due_date.slice(0,10);
+      if (dailyBalance[key] !== undefined) {
+        dailyBalance[key] += (s.total_amount || 0) - (s.paid_amount || 0);
+      }
+    });
+
+  // فواتير مشتريات غير مسددة → مصروفات متوقعة
+  DB.getAll('purchases')
+    .filter(p => p.status !== 'paid' && p.status !== 'cancelled' && p.due_date)
+    .forEach(p => {
+      const key = p.due_date.slice(0,10);
+      if (dailyBalance[key] !== undefined) {
+        dailyBalance[key] -= (p.total_amount || 0) - (p.paid_amount || 0);
+      }
+    });
+
+  // الشيكات المعلقة
+  DB.getAll('checks')
+    .filter(c => c.status === 'pending' && c.due_date)
+    .forEach(c => {
+      const key = c.due_date.slice(0,10);
+      if (dailyBalance[key] !== undefined) {
+        if (c.type === 'incoming') dailyBalance[key] += c.amount || 0;
+        else dailyBalance[key] -= c.amount || 0;
+      }
+    });
+
+  // حساب الرصيد المتراكم
+  const labels  = [];
+  const balances = [];
+  const colors   = [];
+  let running = startBalance;
+
+  Object.keys(dailyBalance).sort().forEach((date, i) => {
+    if (i % 7 === 0) { // عرض أسبوعي
+      running += Object.entries(dailyBalance)
+        .filter(([d]) => d >= date && d < Object.keys(dailyBalance).sort()[i+7])
+        .reduce((s,[,v]) => s+v, 0);
+      labels.push(date.slice(5)); // MM-DD
+      balances.push(Math.round(running));
+      colors.push(running >= 0 ? 'rgba(29,158,117,0.6)' : 'rgba(226,75,74,0.6)');
+    }
+  });
+
+  return { labels, balances, colors };
+}
+

@@ -367,6 +367,7 @@ async function renderSettings() {
           <div class="form-group form-full"><label>العنوان</label>  <input type="text" id="set-address"  value="${s.address || ''}"></div>
           <div class="form-group"><label>العملة</label>            <input type="text" id="set-currency" value="${s.currency || 'EGP'}"></div>
           <div class="form-group"><label>نسبة ضريبة القيمة المضافة (%)</label><input type="number" id="set-tax" value="${s.tax_rate || 14}" min="0" max="100"></div>
+          <div class="form-group"><label>حد الموافقة على الفواتير (ج.م) — 0 لتعطيل</label><input type="number" id="set-approval-limit" value="${s.approval_limit || 0}" min="0" placeholder="مثال: 50000"></div>
         </div>
         <div style="margin-top:20px;text-align:left">
           <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
@@ -491,10 +492,23 @@ async function renderSettings() {
           <div id="rateHistoryTable" style="margin-top:16px"></div>
         </div>
       </div>
+
+      <!-- ===== مؤشرات KPI المخصصة ===== -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">📊 مؤشرات KPI المخصصة للوحة التحكم</span></div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+          اختر حتى 8 مؤشرات لعرضها في لوحة التحكم. اسحب للترتيب.
+        </p>
+        <div id="kpi-customizer"></div>
+        <div style="margin-top:16px;text-align:left">
+          <button class="btn btn-primary" onclick="saveKpiSelection()">💾 حفظ مؤشرات KPI</button>
+        </div>
+      </div>
     `;
     // تحديث واجهة النسخ الاحتياطي وجدول أسعار الصرف بعد رسم الصفحة
     updateBackupUI();
     renderRateHistory();
+    renderKpiCustomizer();
   } catch (e) {
     content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
   }
@@ -508,6 +522,7 @@ async function saveSettings() {
     address:           document.getElementById('set-address').value,
     currency:          document.getElementById('set-currency').value,
     tax_rate:          parseFloat(document.getElementById('set-tax').value) || 14,
+    approval_limit:    parseFloat(document.getElementById('set-approval-limit')?.value) || 0,
     // إعدادات تيليجرام
     tgBotToken:        (document.getElementById('set-tgBotToken')?.value  || '').trim(),
     tgChatId:          (document.getElementById('set-tgChatId')?.value    || '').trim(),
@@ -644,36 +659,29 @@ function exportProductsExcel() {
 
 // تصدير نسخة احتياطية كاملة من جميع البيانات
 function exportFullBackup() {
-  const keys = [
-    'settings','employees','customers','suppliers','products',
-    'sales','sale_items','purchases','purchase_items','payments',
-    'expenses','blocks','slabs','cutting','accounts','journal',
-    'journal_lines','quotations','warehouses','shipments',
-    'activity_log','notifications','manufacturing','cost_centers',
-    'export_orders','quality_data','crm_interactions',
-    'checks','recurring_entries','exchange_rates'
-  ];
   const backup = {
-    version:   '2.0',
+    version:   '2.1',
     createdAt: new Date().toISOString(),
     system:    'ERP الرخام والجرانيت',
     data:      {}
   };
-  keys.forEach(k => {
-    const v = localStorage.getItem(k);
-    if (v) {
-      try { backup.data[k] = JSON.parse(v); }
-      catch { backup.data[k] = v; }
-    }
-  });
+  // تصدير جميع مفاتيح marble_db_
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('marble_db_'))
+    .forEach(k => {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        try { backup.data[k] = JSON.parse(raw); }
+        catch { backup.data[k] = raw; }
+      }
+    });
   const blob = new Blob(
     [JSON.stringify(backup, null, 2)],
     { type: 'application/json' }
   );
   const a    = document.createElement('a');
   a.href     = URL.createObjectURL(blob);
-  a.download = 'erp-backup-' +
-               new Date().toISOString().slice(0,10) + '.json';
+  a.download = 'erp-backup-' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
   localStorage.setItem('_lastBackup', new Date().toISOString());
   toast('تم تصدير النسخة الاحتياطية ✓', 'success');
@@ -695,9 +703,12 @@ function importBackup(file) {
         'استعادة نسخة بتاريخ ' + (b.createdAt||'').slice(0,10) +
         '؟\nسيتم استبدال جميع البيانات الحالية.'
       )) {
-        Object.entries(b.data).forEach(([k,v]) =>
-          localStorage.setItem(k, JSON.stringify(v))
-        );
+        Object.entries(b.data).forEach(([k,v]) => {
+          // دعم الإصدار القديم (مفاتيح بدون marble_db_) والإصدار الجديد
+          const storageKey = k.startsWith('marble_db_') ? k : 'marble_db_' + k;
+          localStorage.setItem(storageKey, JSON.stringify(v));
+        });
+        localStorage.setItem('_lastBackup', b.createdAt || new Date().toISOString());
         toast('تمت الاستعادة ✓ — جاري إعادة التشغيل', 'success');
         setTimeout(() => location.reload(), 1500);
       }
@@ -779,4 +790,90 @@ function renderRateHistory() {
       '<td>' + formatDate(r.date) + '</td></tr>'
     ).join('') +
     '</tbody></table>';
+}
+
+// ===== مؤشرات KPI المخصصة =====
+const ALL_KPI_INDICATORS = [
+  { id: 'monthly_sales',       label: 'مبيعات الشهر الحالي' },
+  { id: 'monthly_purchases',   label: 'مشتريات الشهر الحالي' },
+  { id: 'cash_balance',        label: 'الرصيد النقدي' },
+  { id: 'overdue_amount',      label: 'المستحقات المتأخرة' },
+  { id: 'inventory_value',     label: 'قيمة المخزون' },
+  { id: 'low_stock_count',     label: 'منتجات نقص المخزون' },
+  { id: 'cpm_this_month',      label: 'متوسط تكلفة المتر' },
+  { id: 'waste_rate',          label: 'نسبة الهالك الفعلية' },
+  { id: 'export_revenue',      label: 'إيرادات التصدير' },
+  { id: 'local_revenue',       label: 'إيرادات السوق المحلي' },
+  { id: 'available_slabs',     label: 'ألواح متاحة في المخزن' },
+  { id: 'blocks_in_cutting',   label: 'كتل في مرحلة القطع' },
+  { id: 'pending_invoices',    label: 'فواتير معلقة للموافقة' },
+  { id: 'overdue_count',       label: 'عدد الفواتير المتأخرة' },
+  { id: 'monthly_output',      label: 'إنتاج الشهر (وحدات)' },
+  { id: 'avg_collection_days', label: 'متوسط أيام التحصيل' },
+  { id: 'crm_leads',           label: 'عدد الفرص التجارية النشطة' },
+  { id: 'pending_checks',      label: 'شيكات معلقة' },
+  { id: 'total_customers',     label: 'إجمالي العملاء' },
+  { id: 'top_product',         label: 'أكثر منتج مبيعاً' },
+];
+
+function getSelectedKpis() {
+  const s = DB.get('settings') || {};
+  return s.custom_kpis || ['monthly_sales','cash_balance','overdue_amount','inventory_value','waste_rate','cpm_this_month','monthly_purchases','low_stock_count'];
+}
+
+function renderKpiCustomizer() {
+  const el = document.getElementById('kpi-customizer');
+  if (!el) return;
+  const selected = getSelectedKpis();
+  el.innerHTML = ALL_KPI_INDICATORS.map(kpi => {
+    const isChecked = selected.includes(kpi.id);
+    const idx = selected.indexOf(kpi.id);
+    return `<label draggable="true" data-kpi-id="${kpi.id}"
+      ondragstart="_kpiDragStart(event)"
+      ondragover="_kpiDragOver(event)"
+      ondrop="_kpiDrop(event)"
+      style="display:flex;align-items:center;gap:10px;padding:8px 12px;
+             border:1px solid var(--border);border-radius:8px;margin-bottom:6px;
+             cursor:grab;background:${isChecked ? 'var(--bg-secondary)' : 'var(--bg-card)'}">
+      <input type="checkbox" data-kpi="${kpi.id}" ${isChecked ? 'checked' : ''} onchange="_kpiCheckChange()">
+      <span style="flex:1;font-size:13px">${kpi.label}</span>
+      ${isChecked ? `<span style="font-size:11px;color:var(--accent)">#${idx+1}</span>` : ''}
+      <span style="color:var(--text-muted);font-size:14px">⠿</span>
+    </label>`;
+  }).join('');
+}
+
+function _kpiCheckChange() {
+  const checked = [...document.querySelectorAll('[data-kpi]:checked')].map(el => el.dataset.kpi);
+  if (checked.length > 8) {
+    toast('يمكن اختيار 8 مؤشرات كحد أقصى', 'warning');
+    event.target.checked = false;
+    return;
+  }
+}
+
+let _kpiDragId = null;
+function _kpiDragStart(e) { _kpiDragId = e.currentTarget.dataset.kpiId; e.dataTransfer.effectAllowed = 'move'; }
+function _kpiDragOver(e)  { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function _kpiDrop(e) {
+  e.preventDefault();
+  const targetId = e.currentTarget.dataset.kpiId;
+  if (!_kpiDragId || _kpiDragId === targetId) return;
+  const container = e.currentTarget.parentElement;
+  const items = [...container.querySelectorAll('[data-kpi-id]')];
+  const fromEl = items.find(el => el.dataset.kpiId === _kpiDragId);
+  const toEl   = items.find(el => el.dataset.kpiId === targetId);
+  if (fromEl && toEl) container.insertBefore(fromEl, toEl);
+}
+
+function saveKpiSelection() {
+  const selected = [...document.querySelectorAll('#kpi-customizer [data-kpi-id]')]
+    .filter(el => el.querySelector('[data-kpi]:checked'))
+    .map(el => el.dataset.kpiId)
+    .slice(0, 8);
+  if (!selected.length) { toast('اختر مؤشراً واحداً على الأقل', 'warning'); return; }
+  const s = DB.get('settings') || {};
+  s.custom_kpis = selected;
+  DB.set('settings', s);
+  toast('تم حفظ مؤشرات KPI المخصصة', 'success');
 }
