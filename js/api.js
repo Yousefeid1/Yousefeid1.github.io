@@ -1369,9 +1369,10 @@ function createSlabsFromCutting(cuttingData) {
 
     // إنشاء ألواح درجة أولى
     for (let i = 0; i < (grade_a || 0); i++) {
+      const id = slabNum++;
       DB.save('slabs', {
-        id:         slabNum++,
-        code:       `SLB-${String(slabNum).padStart(4, '0')}`,
+        id,
+        code:       `SLB-${String(id).padStart(4, '0')}`,
         block_id:   parseInt(blockId),
         block_code: blockCode,
         type:       block_type || '',
@@ -1383,9 +1384,10 @@ function createSlabsFromCutting(cuttingData) {
     }
     // إنشاء ألواح درجة ثانية
     for (let i = 0; i < (grade_b || 0); i++) {
+      const id = slabNum++;
       DB.save('slabs', {
-        id:         slabNum++,
-        code:       `SLB-${String(slabNum).padStart(4, '0')}`,
+        id,
+        code:       `SLB-${String(id).padStart(4, '0')}`,
         block_id:   parseInt(blockId),
         block_code: blockCode,
         type:       block_type || '',
@@ -1397,9 +1399,10 @@ function createSlabsFromCutting(cuttingData) {
     }
     // إنشاء ألواح درجة ثالثة
     for (let i = 0; i < (grade_c || 0); i++) {
+      const id = slabNum++;
       DB.save('slabs', {
-        id:         slabNum++,
-        code:       `SLB-${String(slabNum).padStart(4, '0')}`,
+        id,
+        code:       `SLB-${String(id).padStart(4, '0')}`,
         block_id:   parseInt(blockId),
         block_code: blockCode,
         type:       block_type || '',

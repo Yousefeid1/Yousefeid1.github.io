@@ -7,7 +7,7 @@
 const HANDLING_RATES = { labor: 8 };
 
 // ===== حساب تكلفة المناولة =====
-function calcHandlingCost(distance, lifts, workers, hours) {
+function calcHandlingCost(workers, hours) {
   return {
     forkLiftCost: 0,
     craneCost:    0,
@@ -432,7 +432,7 @@ function applyHandlingCost() {
   const workers  = parseFloat(document.getElementById('ns-hc-workers')?.value) || 0;
   const hours    = parseFloat(document.getElementById('ns-hc-hours')?.value)   || 0;
 
-  const hc     = calcHandlingCost(0, 0, workers, hours);
+  const hc     = calcHandlingCost(workers, hours);
   const result = document.getElementById('ns-hc-result');
   if (result) {
     result.innerHTML = `عمالة: <strong>${formatMoney(hc.laborCost)}</strong>`;
@@ -490,7 +490,8 @@ function saveManufacturingStage() {
     const stageCost = (record.directCost || 0) + (record.laborCost || 0) +
                       (record.materialCost || 0) + (record.transportCost || 0);
     if (stageCost > 0) {
-      updateSlabCost(blockId, stageCost);
+      // تحديث تكلفة الكتلة الأم بدلاً من اللوح (لأن الكتلة هي المرجع في هذه المرحلة)
+      updateItemCost(blockId, stageCost);
       createAutoJournal({ debit: 'تكاليف تصنيع', credit: 'مستحقات تصنيع', amount: stageCost, ref: record.operationId || String(record.id), date });
     }
     // إذا كانت من مراحل الإنهاء — تحديث حالة اللوح
