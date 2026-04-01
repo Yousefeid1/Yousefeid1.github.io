@@ -101,7 +101,41 @@ function collectAllAlerts() {
     }
   });
 
-  // 5. تذكير النسخ الاحتياطي
+  // 5. شحنات متأخرة (تجاوزت تاريخ التسليم المتوقع)
+  var shipments = DB.getAll('shipments');
+  shipments.forEach(function(sh) {
+    if (sh.status === 'delivered' || sh.status === 'cancelled') return;
+    if (!sh.delivery_date) return;
+    var due = new Date(sh.delivery_date);
+    if (isNaN(due.getTime())) return;
+    if (due < today) {
+      alerts.push({
+        level:    'danger',
+        category: 'شحن',
+        text:     (sh.shipment_number || '') + ' — ' + (sh.customer || '') +
+                  ' — متأخرة منذ ' + Math.floor((today - due) / 86400000) + ' يوم',
+        page:     'shipments',
+        id:       sh.id
+      });
+    }
+  });
+
+  // 6. أوامر تصدير في انتظار التأكيد
+  var exportOrders = DB.getAll('export_orders');
+  var pendingExports = exportOrders.filter(function(o) {
+    return o.status === 'pending' || o.status === 'في انتظار التأكيد';
+  });
+  if (pendingExports.length > 0) {
+    alerts.push({
+      level:    'info',
+      category: 'تصدير',
+      text:     pendingExports.length + ' أمر تصدير في انتظار التأكيد',
+      page:     'export',
+      id:       null
+    });
+  }
+
+  // 7. تذكير النسخ الاحتياطي
   var lastBackup = localStorage.getItem('_lastBackup');
   var backupDays = lastBackup ? daysBetween(lastBackup) : 999;
   if (backupDays > 1) {
@@ -244,10 +278,7 @@ async function renderDashboard() {
     // إرسال التقرير اليومي إن لزم
     checkAndSendDailyReport();
 
-    const d = await api.dashboard();
-    const k = d.kpis;
-
-    // ===== حساب مؤشرات التصنيع والتصدير الجديدة =====
+    // ===== حساب مؤشرات لوحة التحكم =====
     const now   = new Date();
     const thisM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const prevM = (() => {
@@ -255,23 +286,7 @@ async function renderDashboard() {
       return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}`;
     })();
 
-    // تكلفة المتر المصنع هذا الشهر
-    const mfgStages  = DB.getAll('manufacturing_stages');
-    const thisMStages = mfgStages.filter(s => s.date && s.date.startsWith(thisM));
-    const prevMStages = mfgStages.filter(s => s.date && s.date.startsWith(prevM));
-
-    const calcCPM = (stages) => {
-      const totalCost = stages.reduce((s, r) =>
-        s + (r.directCost || 0) + (r.laborCost || 0) + (r.materialCost || 0) + (r.transportCost || 0), 0);
-      const totalOut  = stages.reduce((s, r) => s + (r.outputQuantity || 0), 0);
-      return totalOut > 0 ? totalCost / totalOut : 0;
-    };
-
-    const thisCPM  = calcCPM(thisMStages);
-    const prevCPM  = calcCPM(prevMStages);
-    const cpmGrowth = prevCPM > 0 ? ((thisCPM - prevCPM) / prevCPM * 100).toFixed(1) : null;
-
-    // إيرادات التصدير vs المحلية هذا الشهر
+    // إيرادات التصدير والمحلية هذا الشهر
     const exportOrders   = DB.getAll('export_orders');
     const thisExportRev  = exportOrders.filter(o => o.shippingDate && o.shippingDate.startsWith(thisM))
       .reduce((s, o) => s + (o.totalRevenue || 0), 0);
@@ -279,14 +294,41 @@ async function renderDashboard() {
     const thisLocalRev   = allSales.filter(s => s.invoice_date && s.invoice_date.startsWith(thisM)
                             && s.status !== 'cancelled')
       .reduce((s, inv) => s + (inv.total_amount || 0), 0);
+    const thisTotalRev   = thisExportRev + thisLocalRev;
 
-    // نسبة الهالك الفعلية
-    const totalOutput   = mfgStages.reduce((s, r) => s + (r.outputQuantity || 0), 0);
-    const totalWaste    = mfgStages.reduce((s, r) => s + (r.wasteQuantity  || 0), 0);
-    const wasteRate     = (totalOutput + totalWaste) > 0
-      ? (totalWaste / (totalOutput + totalWaste) * 100).toFixed(1) : '0.0';
-    const settings      = DB.get('settings') || {};
-    const targetWaste   = parseFloat(settings.target_waste_pct || 5); // الهدف الافتراضي 5% - يُعدَّل من الإعدادات
+    const prevExportRev  = exportOrders.filter(o => o.shippingDate && o.shippingDate.startsWith(prevM))
+      .reduce((s, o) => s + (o.totalRevenue || 0), 0);
+    const prevLocalRev   = allSales.filter(s => s.invoice_date && s.invoice_date.startsWith(prevM)
+                            && s.status !== 'cancelled')
+      .reduce((s, inv) => s + (inv.total_amount || 0), 0);
+    const prevTotalRev   = prevExportRev + prevLocalRev;
+    const revGrowth      = prevTotalRev > 0 ? ((thisTotalRev - prevTotalRev) / prevTotalRev * 100).toFixed(1) : null;
+
+    // مشتريات الشهر
+    const purchases   = DB.getAll('purchases');
+    const thisPurchases = purchases.filter(p => (p.invoice_date||'').startsWith(thisM) && p.status !== 'cancelled')
+      .reduce((s, p) => s + (p.total_amount || 0), 0);
+
+    // صافي الأرباح هذا الشهر
+    const expenses     = DB.getAll('expenses');
+    const thisExpenses = expenses.filter(e => (e.date||'').startsWith(thisM))
+      .reduce((s, e) => s + (e.amount || 0), 0);
+    const mfgStages    = DB.getAll('manufacturing_stages');
+    const thisMfgCost  = mfgStages.filter(m => (m.date||'').startsWith(thisM))
+      .reduce((s, m) => s + (m.directCost||0) + (m.laborCost||0) + (m.materialCost||0) + (m.transportCost||0), 0);
+    const thisNetProfit = thisTotalRev - thisPurchases - thisExpenses - thisMfgCost;
+
+    // أوامر التصدير النشطة
+    const activeExportOrders = exportOrders.filter(o => o.status && !['تم التسليم','مكتمل','ملغى','cancelled'].includes(o.status)).length;
+
+    // مخزون الألواح الجاهزة (م²)
+    const slabs = DB.getAll('slabs');
+    const readySlabsM2 = slabs.filter(s => s.status === 'in_stock')
+      .reduce((sum, s) => sum + (s.area_m2 || s.length_cm && s.width_cm ? (s.length_cm||0) * (s.width_cm||0) / 10000 : 0), 0);
+
+    // إجمالي مديونية العملاء
+    const totalDebt = allSales.filter(s => s.status !== 'paid' && s.status !== 'cancelled')
+      .reduce((sum, s) => sum + Math.max(0, (s.total_amount||0) - (s.paid_amount||0)), 0);
 
     // أعلى 5 عملاء إيراداً هذا الشهر
     const top5Customers = (() => {
@@ -297,17 +339,27 @@ async function renderDashboard() {
         .sort((a, b) => b.total - a.total).slice(0, 5);
     })();
 
-    // أعلى 5 ماكينات تكلفةً هذا الشهر
-    const top5Machines = (() => {
-      const map = {};
-      thisMStages.forEach(s => {
-        if (!s.machineId) return;
-        const cost = (s.directCost || 0) + (s.laborCost || 0) + (s.materialCost || 0) + (s.transportCost || 0);
-        map[s.machineId] = (map[s.machineId] || 0) + cost;
-      });
-      return Object.entries(map).map(([id, cost]) => ({ id, cost }))
-        .sort((a, b) => b.cost - a.cost).slice(0, 5);
+    // إيرادات التصدير آخر 12 شهر
+    const exportRevLast12 = (() => {
+      const months = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const m = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const rev = exportOrders.filter(o => (o.shippingDate||'').startsWith(m))
+          .reduce((s, o) => s + (o.totalRevenue||0), 0);
+        months.push({ month: m.slice(5) + '/' + m.slice(0,4), revenue: rev });
+      }
+      return months;
     })();
+
+    // توزيع التكاليف (مشتريات / تصنيع / شحن / إدارية)
+    const shipments = DB.getAll('shipments');
+    const costDistrib = {
+      'مشتريات': purchases.reduce((s, p) => s + (p.total_amount||0), 0),
+      'تصنيع':   mfgStages.reduce((s, m) => s + (m.directCost||0)+(m.laborCost||0)+(m.materialCost||0)+(m.transportCost||0), 0),
+      'شحن':     shipments.reduce((s, sh) => s + (sh.freight_cost||sh.cost||0), 0),
+      'إدارية':  expenses.reduce((s, e) => s + (e.amount||0), 0),
+    };
 
     content.innerHTML = `
       <!-- ===== التنبيهات الذكية ===== -->
@@ -316,193 +368,130 @@ async function renderDashboard() {
       <!-- ===== فواتير معلقة للموافقة (للمديرين فقط) ===== -->
       <div id="pendingApprovalsContainer" style="margin-bottom:12px"></div>
 
-      <!-- ===== مؤشرات الإنتاج ===== -->
-      <div id="productionKPIsContainer" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px"></div>
-
       <!-- ===== KPIs الأساسية ===== -->
       <div class="kpi-grid">
         <div class="kpi-card gold">
           <div class="kpi-icon">💰</div>
-          <div class="kpi-value number">${formatMoney(k.monthly_sales)}</div>
-          <div class="kpi-label">مبيعات الشهر (${k.monthly_sales_count} فاتورة)
-            ${d.sales_growth !== null ? `<span style="font-size:12px;font-weight:700;color:${parseFloat(d.sales_growth)>=0?'var(--success)':'var(--danger)'};margin-right:6px">${parseFloat(d.sales_growth)>=0?'▲':'▼'} ${Math.abs(d.sales_growth)}%</span>` : ''}
+          <div class="kpi-value number">${formatMoney(thisTotalRev)}</div>
+          <div class="kpi-label">إجمالي الإيرادات (الشهر الحالي)
+            ${revGrowth !== null ? `<span style="font-size:12px;font-weight:700;color:${parseFloat(revGrowth)>=0?'var(--success)':'var(--danger)'};margin-right:6px">${parseFloat(revGrowth)>=0?'▲':'▼'} ${Math.abs(revGrowth)}%</span>` : ''}
           </div>
-        </div>
-        <div class="kpi-card green">
-          <div class="kpi-icon">🏦</div>
-          <div class="kpi-value number">${formatMoney(k.cash_balance + k.bank_balance)}</div>
-          <div class="kpi-label">الرصيد النقدي والبنكي</div>
-        </div>
-        <div class="kpi-card red">
-          <div class="kpi-icon">⚠️</div>
-          <div class="kpi-value number">${formatMoney(k.overdue_amount)}</div>
-          <div class="kpi-label">مستحقات متأخرة (${k.overdue_count})</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-icon">📦</div>
-          <div class="kpi-value number">${formatMoney(k.inventory_value)}</div>
-          <div class="kpi-label">قيمة المخزون</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-icon">🛒</div>
-          <div class="kpi-value number">${formatMoney(k.monthly_purchases)}</div>
-          <div class="kpi-label">مشتريات الشهر</div>
+          <div class="kpi-value number">${formatMoney(thisPurchases)}</div>
+          <div class="kpi-label">إجمالي المشتريات (الشهر الحالي)</div>
         </div>
-        <div class="kpi-card ${k.low_stock_count > 0 ? 'red' : 'green'}">
-          <div class="kpi-icon">🚨</div>
-          <div class="kpi-value">${k.low_stock_count}</div>
-          <div class="kpi-label">منتجات نقص المخزون</div>
+        <div class="kpi-card ${thisNetProfit >= 0 ? 'green' : 'red'}">
+          <div class="kpi-icon">📊</div>
+          <div class="kpi-value number">${formatMoney(thisNetProfit)}</div>
+          <div class="kpi-label">صافي الأرباح (الشهر الحالي)</div>
         </div>
-      </div>
-
-      <!-- ===== KPIs الإنتاج والتصدير ===== -->
-      <div class="kpi-grid" style="margin-top:-8px">
-        <div class="kpi-card" onclick="showPage('report-cost-per-meter')" style="cursor:pointer">
-          <div class="kpi-icon">📐</div>
-          <div class="kpi-value number">${formatMoney(thisCPM)}</div>
-          <div class="kpi-label">متوسط تكلفة المتر هذا الشهر
-            ${cpmGrowth !== null ? `<span style="font-size:12px;font-weight:700;color:${parseFloat(cpmGrowth)<=0?'var(--success)':'var(--danger)'};margin-right:6px">${parseFloat(cpmGrowth)<=0?'▼':'▲'} ${Math.abs(cpmGrowth)}%</span>` : ''}
-          </div>
-        </div>
-        <div class="kpi-card" onclick="showPage('report-export-profit')" style="cursor:pointer">
+        <div class="kpi-card">
           <div class="kpi-icon">🚢</div>
-          <div class="kpi-value number">${formatMoney(thisExportRev)}</div>
-          <div class="kpi-label">إيرادات التصدير هذا الشهر</div>
+          <div class="kpi-value">${activeExportOrders}</div>
+          <div class="kpi-label">أوامر التصدير النشطة</div>
         </div>
-        <div class="kpi-card" onclick="showPage('report-export-profit')" style="cursor:pointer">
-          <div class="kpi-icon">🏠</div>
-          <div class="kpi-value number">${formatMoney(thisLocalRev)}</div>
-          <div class="kpi-label">إيرادات السوق المحلي هذا الشهر</div>
+        <div class="kpi-card">
+          <div class="kpi-icon">🪨</div>
+          <div class="kpi-value number">${readySlabsM2.toFixed(1)} م²</div>
+          <div class="kpi-label">مخزون الألواح الجاهزة</div>
         </div>
-        <div class="kpi-card ${parseFloat(wasteRate) > targetWaste ? 'red' : 'green'}" onclick="showPage('report-waste')" style="cursor:pointer">
-          <div class="kpi-icon">♻️</div>
-          <div class="kpi-value">${wasteRate}%</div>
-          <div class="kpi-label">نسبة الهالك الفعلية (الهدف: ${targetWaste}%)</div>
+        <div class="kpi-card ${totalDebt > 0 ? 'red' : 'green'}">
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-value number">${formatMoney(totalDebt)}</div>
+          <div class="kpi-label">إجمالي مديونية العملاء</div>
         </div>
       </div>
 
       <div class="charts-grid">
         <div class="card">
           <div class="card-header">
-            <span class="card-title">📈 المبيعات - آخر 6 أشهر</span>
+            <span class="card-title">📈 إيرادات التصدير — آخر 12 شهر</span>
           </div>
-          <canvas id="sales-chart" height="80"></canvas>
+          <canvas id="export-revenue-chart" height="80"></canvas>
         </div>
         <div class="card">
           <div class="card-header">
-            <span class="card-title">⭐ أفضل العملاء</span>
+            <span class="card-title">🥧 توزيع التكاليف</span>
           </div>
-          <div id="top-customers-list"></div>
+          <canvas id="cost-dist-chart" height="80"></canvas>
         </div>
       </div>
 
-    <div class="charts-grid">
-      <div class="card">
-        <div class="card-header"><span class="card-title">🏆 أكثر المنتجات مبيعاً</span></div>
-        <div id="top-products-list" style="padding:8px 4px">
-          ${(d.top_products && d.top_products.length) ? (() => {
-            const maxQ = Math.max(...d.top_products.map(p => p.qty));
-            return d.top_products.map((p,i) => `
-              <div style="margin-bottom:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-                  <span style="font-size:13px;font-weight:600">${i+1}. ${p.name}</span>
-                  <span style="font-size:13px;color:var(--accent)">${p.qty} وحدة</span>
-                </div>
-                <div style="height:6px;background:var(--bg-input);border-radius:3px">
-                  <div style="height:100%;background:linear-gradient(90deg,var(--accent-dark),var(--accent));border-radius:3px;width:${(p.qty/maxQ*100).toFixed(1)}%"></div>
-                </div>
-              </div>`).join('');
-          })() : '<div class="empty-state" style="padding:30px"><div class="empty-icon">📦</div><p>لا توجد بيانات</p></div>'}
+      <div class="charts-grid" style="margin-top:4px">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🥇 أعلى 5 عملاء إيراداً هذا الشهر</span>
+            <button class="btn btn-secondary btn-sm" onclick="showPage('crm')">CRM</button>
+          </div>
+          <div style="padding:4px">
+            ${top5Customers.length > 0 ? (() => {
+              const maxT = Math.max(...top5Customers.map(c => c.total));
+              return top5Customers.map((c, i) => `
+                <div style="margin-bottom:10px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="font-size:13px;font-weight:600">${i+1}. ${c.name}</span>
+                    <span style="font-size:13px;color:var(--accent)">${formatMoney(c.total)}</span>
+                  </div>
+                  <div style="height:5px;background:var(--bg-input);border-radius:3px">
+                    <div style="height:100%;background:linear-gradient(90deg,var(--accent-dark),var(--accent));border-radius:3px;width:${(c.total/maxT*100).toFixed(1)}%"></div>
+                  </div>
+                </div>`).join('');
+            })() : '<div class="empty-state" style="padding:20px"><p>لا توجد مبيعات هذا الشهر</p></div>'}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">🚢 آخر 5 أوامر تصدير</span>
+            <button class="btn btn-secondary btn-sm" onclick="showPage('export')">التصدير</button>
+          </div>
+          <div class="data-table-wrapper">
+            <table>
+              <thead><tr><th>رقم الأمر</th><th>العميل</th><th>الإيراد</th><th>الحالة</th></tr></thead>
+              <tbody>
+                ${exportOrders.slice().sort((a,b) => new Date(b.createdAt||b.orderDate||0) - new Date(a.createdAt||a.orderDate||0)).slice(0,5).map(o => `
+                  <tr>
+                    <td class="number">${o.exportOrderNo || o.id}</td>
+                    <td>${o.customerName || '-'}</td>
+                    <td class="number text-success">${formatMoney(o.totalRevenue||0)}</td>
+                    <td>${statusBadge(o.status || 'pending')}</td>
+                  </tr>`).join('') || '<tr><td colspan="4" class="text-muted" style="text-align:center;padding:12px">لا توجد أوامر تصدير</td></tr>'}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">🚨 تنبيهات المخزون المنخفض</span></div>
-        <div>
-          ${(d.low_stock_products && d.low_stock_products.length) ? d.low_stock_products.map(p => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--border)">
-              <div>
-                <div style="font-size:13px;font-weight:600">${p.name}</div>
-                <div style="font-size:12px;color:var(--text-muted)">${p.code}</div>
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:16px;font-weight:700;color:var(--danger)">${p.stock_qty}</div>
-                <div style="font-size:11px;color:var(--text-muted)">الحد الأدنى: ${p.min_stock}</div>
-              </div>
-            </div>`).join('') : '<div class="empty-state" style="padding:30px"><div class="empty-icon">✅</div><p>المخزون بمستوى جيد</p></div>'}
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== أعلى 5 هذا الشهر ===== -->
-    <div class="charts-grid" style="margin-top:4px">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">🥇 أعلى 5 عملاء إيراداً هذا الشهر</span>
-          <button class="btn btn-secondary btn-sm" onclick="showPage('crm')">CRM</button>
-        </div>
-        <div style="padding:4px">
-          ${top5Customers.length > 0 ? (() => {
-            const maxT = Math.max(...top5Customers.map(c => c.total));
-            return top5Customers.map((c, i) => `
-              <div style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-size:13px;font-weight:600">${i+1}. ${c.name}</span>
-                  <span style="font-size:13px;color:var(--accent)">${formatMoney(c.total)}</span>
-                </div>
-                <div style="height:5px;background:var(--bg-input);border-radius:3px">
-                  <div style="height:100%;background:linear-gradient(90deg,var(--accent-dark),var(--accent));border-radius:3px;width:${(c.total/maxT*100).toFixed(1)}%"></div>
-                </div>
-              </div>`).join('');
-          })() : '<div class="empty-state" style="padding:20px"><p>لا توجد مبيعات هذا الشهر</p></div>'}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">⚙️ أعلى 5 ماكينات تكلفةً هذا الشهر</span>
-          <button class="btn btn-secondary btn-sm" onclick="showPage('manufacturing')">التصنيع</button>
-        </div>
-        <div style="padding:4px">
-          ${top5Machines.length > 0 ? (() => {
-            const maxC = Math.max(...top5Machines.map(m => m.cost));
-            return top5Machines.map((m, i) => `
-              <div style="margin-bottom:10px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-                  <span style="font-size:13px;font-weight:600">${i+1}. ${m.id}</span>
-                  <span style="font-size:13px;color:var(--danger)">${formatMoney(m.cost)}</span>
-                </div>
-                <div style="height:5px;background:var(--bg-input);border-radius:3px">
-                  <div style="height:100%;background:linear-gradient(90deg,var(--danger),var(--warning));border-radius:3px;width:${(m.cost/maxC*100).toFixed(1)}%"></div>
-                </div>
-              </div>`).join('');
-          })() : '<div class="empty-state" style="padding:20px"><p>لا توجد عمليات تصنيع هذا الشهر</p></div>'}
-        </div>
-      </div>
-    </div>
 
       <div class="card">
         <div class="card-header">
-          <span class="card-title">🧾 آخر الفواتير</span>
-          <button class="btn btn-primary btn-sm" onclick="showPage('sales')">عرض الكل</button>
+          <span class="card-title">🪨 آخر 5 مشتريات كتل</span>
+          <button class="btn btn-primary btn-sm" onclick="showPage('purchases')">عرض الكل</button>
         </div>
         <div class="data-table-wrapper">
           <table>
             <thead><tr>
-              <th>رقم الفاتورة</th>
-              <th>العميل</th>
+              <th>كود الكتلة</th>
+              <th>النوع</th>
+              <th>المورد</th>
               <th>التاريخ</th>
-              <th>المبلغ</th>
+              <th>التكلفة</th>
               <th>الحالة</th>
             </tr></thead>
             <tbody>
-              ${d.recent_invoices.map(inv => `
-                <tr>
-                  <td class="number">${inv.invoice_number}</td>
-                  <td>${inv.customer}</td>
-                  <td>${formatDate(inv.invoice_date)}</td>
-                  <td class="number">${formatMoney(inv.total_amount)}</td>
-                  <td>${statusBadge(inv.status)}</td>
-                </tr>
-              `).join('')}
+              ${(() => {
+                const blocks = DB.getAll('blocks').slice().sort((a,b) => new Date(b.received_date||0) - new Date(a.received_date||0)).slice(0,5);
+                if (!blocks.length) return '<tr><td colspan="6" class="text-muted" style="text-align:center;padding:12px">لا توجد كتل</td></tr>';
+                return blocks.map(b => `
+                  <tr>
+                    <td class="number">${b.code}</td>
+                    <td>${b.type || '-'}</td>
+                    <td>${b.supplier || '-'}</td>
+                    <td>${formatDate(b.received_date)}</td>
+                    <td class="number">${formatMoney(b.cost||0)}</td>
+                    <td>${statusBadge(b.status)}</td>
+                  </tr>`).join('');
+              })()}
             </tbody>
           </table>
         </div>
@@ -554,64 +543,61 @@ async function renderDashboard() {
       }
     }
 
-    // ===== ملء مؤشرات الإنتاج =====
-    var prodKPIsEl = document.getElementById('productionKPIsContainer');
-    if (prodKPIsEl) {
-      var prodHtml = renderProductionKPIs();
-      if (prodHtml) {
-        prodKPIsEl.innerHTML =
-          '<div style="width:100%;margin-bottom:4px">' +
-          '<span style="font-size:13px;font-weight:600;color:var(--text-muted)">📊 مؤشرات الإنتاج — الشهر الحالي</span>' +
-          '</div>' + prodHtml;
-      }
-    }
-
-    // Sales chart
-    const chartData = d.charts.monthly_sales;
-    if (chartData.length > 0) {
-      const ctx = document.getElementById('sales-chart').getContext('2d');
-      _registerChart('dashboard-sales', new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: chartData.map(r => r.month),
-          datasets: [{
-            label: 'المبيعات (EGP)',
-            data: chartData.map(r => r.total),
-            backgroundColor: 'rgba(200,169,110,0.3)',
-            borderColor: '#c8a96e',
-            borderWidth: 2,
-            borderRadius: 6,
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } } },
-          scales: {
-            x: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } },
-            y: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } }
+    // ===== رسم مخطط إيرادات التصدير =====
+    requestAnimationFrame(() => {
+      const expCtx = document.getElementById('export-revenue-chart');
+      if (expCtx && exportRevLast12.length > 0) {
+        _registerChart('dashboard-export-rev', new Chart(expCtx.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: exportRevLast12.map(r => r.month),
+            datasets: [{
+              label: 'إيرادات التصدير (EGP)',
+              data: exportRevLast12.map(r => r.revenue),
+              backgroundColor: 'rgba(200,169,110,0.2)',
+              borderColor: '#c8a96e',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 3,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } } },
+            scales: {
+              x: { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.8)' } },
+              y: { ticks: { color: '#8892aa', callback: v => formatMoney(v) }, grid: { color: 'rgba(42,47,63,0.8)' } }
+            }
           }
-        }
-      }));
-    }
+        }));
+      }
 
-    // Top customers
-    const tcList = document.getElementById('top-customers-list');
-    if (d.top_customers.length === 0) {
-      tcList.innerHTML = '<div class="empty-state" style="padding:30px"><div class="empty-icon">👤</div><p>لا توجد بيانات</p></div>';
-    } else {
-      const maxSales = Math.max(...d.top_customers.map(c => c.total));
-      tcList.innerHTML = d.top_customers.map(c => `
-        <div style="margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-            <span style="font-size:13px;font-weight:600">${c.name}</span>
-            <span style="font-size:13px;color:var(--accent)">${formatMoney(c.total)}</span>
-          </div>
-          <div style="height:6px;background:var(--bg-input);border-radius:3px;">
-            <div style="height:100%;background:linear-gradient(90deg,var(--accent-dark),var(--accent));border-radius:3px;width:${(c.total/maxSales*100).toFixed(1)}%"></div>
-          </div>
-        </div>
-      `).join('');
-    }
+      // ===== رسم مخطط توزيع التكاليف (دونات) =====
+      const costCtx = document.getElementById('cost-dist-chart');
+      const costVals = Object.values(costDistrib);
+      if (costCtx && costVals.some(v => v > 0)) {
+        _registerChart('dashboard-cost-dist', new Chart(costCtx.getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels: Object.keys(costDistrib),
+            datasets: [{
+              data: costVals,
+              backgroundColor: ['rgba(200,169,110,0.7)', 'rgba(29,158,117,0.7)', 'rgba(185,133,36,0.7)', 'rgba(226,75,74,0.7)'],
+              borderColor: ['#c8a96e', '#1d9e75', '#b98524', '#e24b4a'],
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } },
+              tooltip: { callbacks: { label: ctx => ctx.label + ': ' + formatMoney(ctx.parsed) } },
+            }
+          }
+        }));
+      }
+    });
 
   } catch (e) {
     content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;

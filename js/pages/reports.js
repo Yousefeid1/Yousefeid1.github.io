@@ -8,6 +8,13 @@ async function renderReportPL() {
   try {
     const r = await api.reportPL();
     window._plData = r;
+
+    // إيرادات التصدير vs المحلية
+    const exportOrders  = DB.getAll('export_orders');
+    const exportRev     = exportOrders.filter(o => o.status !== 'cancelled')
+      .reduce((s, o) => s + (o.totalRevenue || 0), 0);
+    const localRev      = Math.max(0, r.revenue - exportRev);
+
     const grossMargin = r.revenue > 0 ? (r.gross_profit / r.revenue * 100).toFixed(1) : 0;
     const netMargin   = r.revenue > 0 ? (r.net_profit   / r.revenue * 100).toFixed(1) : 0;
 
@@ -15,12 +22,12 @@ async function renderReportPL() {
       <div class="page-header"><div><h2>تقرير الأرباح والخسائر</h2><p>نتائج الأعمال التشغيلية</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportPLExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportPLPDF()">📄 PDF</button></div></div>
 
       <div class="report-summary">
-        <div class="summary-box gold">   <div class="label">الإيرادات</div>              <div class="value">${formatMoney(r.revenue)}</div></div>
-        <div class="summary-box">        <div class="label">تكلفة البضاعة المباعة</div> <div class="value">${formatMoney(r.cogs)}</div></div>
+        <div class="summary-box gold">   <div class="label">الإيرادات الكلية</div>          <div class="value">${formatMoney(r.revenue)}</div></div>
+        <div class="summary-box">        <div class="label">إيرادات التصدير</div>           <div class="value">${formatMoney(exportRev)}</div></div>
+        <div class="summary-box">        <div class="label">إيرادات السوق المحلي</div>      <div class="value">${formatMoney(localRev)}</div></div>
+        <div class="summary-box">        <div class="label">تكلفة البضاعة المباعة</div>     <div class="value">${formatMoney(r.cogs)}</div></div>
         <div class="summary-box ${r.gross_profit >= 0 ? 'profit' : 'loss'}"><div class="label">مجمل الربح</div><div class="value">${formatMoney(r.gross_profit)}</div></div>
-        <div class="summary-box">        <div class="label">مصروفات التشغيل</div>      <div class="value">${formatMoney(r.operating_expenses)}</div></div>
-        <div class="summary-box ${r.net_profit >= 0 ? 'profit' : 'loss'}"><div class="label">صافي الربح</div><div class="value">${formatMoney(r.net_profit)}</div></div>
-        <div class="summary-box gold">   <div class="label">هامش الربح الصافي</div>    <div class="value">${netMargin}%</div></div>
+        <div class="summary-box ${r.net_profit >= 0 ? 'profit' : 'loss'}"><div class="label">صافي الربح (${netMargin}%)</div><div class="value">${formatMoney(r.net_profit)}</div></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -28,7 +35,8 @@ async function renderReportPL() {
           <div class="card-header"><span class="card-title">📈 الإيرادات</span></div>
           <table>
             <tbody>
-              <tr><td>إيرادات المبيعات</td><td class="number text-success">${formatMoney(r.revenue)}</td></tr>
+              <tr><td>إيرادات التصدير</td><td class="number text-success">${formatMoney(exportRev)}</td></tr>
+              <tr><td>إيرادات السوق المحلي</td><td class="number text-success">${formatMoney(localRev)}</td></tr>
               <tr style="border-top:1px solid var(--border)"><td><strong>إجمالي الإيرادات</strong></td><td class="number"><strong class="text-success">${formatMoney(r.revenue)}</strong></td></tr>
             </tbody>
           </table>
@@ -135,76 +143,54 @@ async function renderReportBS() {
   }
 }
 
-// ===== WASTE REPORT =====
-async function renderReportWaste() {
-  const content = document.getElementById('page-content');
-  try {
-    const r = await api.reportWaste();
-    window._wasteData = r;
-
-    content.innerHTML = `
-      <div class="page-header"><div><h2>تقرير الهالك</h2><p>تحليل نسبة الهالك في عمليات القطع</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportWasteExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportWastePDF()">📄 PDF</button></div></div>
-      <div class="report-summary">
-        <div class="summary-box gold">  <div class="label">إجمالي الدفعات</div>          <div class="value">${r.total_batches}</div></div>
-        <div class="summary-box profit"><div class="label">إجمالي الألواح المنتجة</div>  <div class="value">${r.total_slabs}</div></div>
-        <div class="summary-box loss">  <div class="label">إجمالي الهالك (ألواح)</div>  <div class="value">${r.total_waste_slabs}</div></div>
-        <div class="summary-box ${r.avg_waste_percentage > 5 ? 'loss' : 'profit'}">
-          <div class="label">متوسط نسبة الهالك</div>
-          <div class="value">${r.avg_waste_percentage.toFixed(1)}%</div>
-        </div>
-      </div>
-      <div class="card" style="padding:0">
-        <div class="data-table-wrapper">
-          <table>
-            <thead><tr>
-              <th>رقم الدفعة</th><th>البلوك</th><th>النوع</th><th>التاريخ</th>
-              <th>الكلي</th><th>درجة A</th><th>درجة B</th><th>هالك</th><th>% الهالك</th>
-            </tr></thead>
-            <tbody>
-              ${r.details.length === 0
-                ? `<tr><td colspan="9"><div class="empty-state" style="padding:30px"><div class="empty-icon">✅</div><h3>لا توجد بيانات</h3></div></td></tr>`
-                : r.details.map(b => `
-                  <tr>
-                    <td class="number">${b.batch_number}</td>
-                    <td class="number">${b.block_code}</td>
-                    <td>${b.block_type}</td>
-                    <td>${formatDate(b.date)}</td>
-                    <td class="number">${b.slabs_count}</td>
-                    <td class="number text-success">${b.grade_a}</td>
-                    <td class="number text-warning">${b.grade_b}</td>
-                    <td class="number text-danger">${b.waste}</td>
-                    <td class="number">
-                      <span class="badge ${b.waste_percentage > 5 ? 'badge-danger' : 'badge-success'}">${b.waste_percentage.toFixed(1)}%</span>
-                    </td>
-                  </tr>
-                `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  } catch (e) {
-    content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
-  }
-}
-
 // ===== INVENTORY REPORT =====
 async function renderReportInventory() {
   const content = document.getElementById('page-content');
   try {
     const r = await api.reportInventory();
-    const lowStock = r.products.filter(p => p.stock_qty <= p.min_stock);
+    const filterType = window._invFilterType || '';
+    const filterQuality = window._invFilterQuality || '';
+    const filterStatus = window._invFilterStatus || '';
+
+    let filteredProducts = r.products;
+    if (filterType)    filteredProducts = filteredProducts.filter(p => p.category === filterType);
+    if (filterQuality) filteredProducts = filteredProducts.filter(p => (p.default_quality || '') === filterQuality);
+    if (filterStatus)  filteredProducts = filteredProducts.filter(p => filterStatus === 'low' ? p.stock_qty <= p.min_stock : p.stock_qty > p.min_stock);
+
+    const lowStock = filteredProducts.filter(p => p.stock_qty <= p.min_stock);
 
     content.innerHTML = `
       <div class="page-header"><div><h2>تقرير المخزون</h2><p>الوضع الحالي للمخزون</p></div><div style="display:flex;gap:8px"><button class="btn btn-secondary" onclick="exportInventoryExcel()">📊 Excel</button><button class="btn btn-secondary" onclick="exportInventoryPDF()">📄 PDF</button></div></div>
       <div class="report-summary">
         <div class="summary-box gold">  <div class="label">إجمالي قيمة المخزون</div> <div class="value">${formatMoney(r.total_inventory_value)}</div></div>
-        <div class="summary-box profit"><div class="label">عدد المنتجات</div>           <div class="value">${r.products.length}</div></div>
+        <div class="summary-box profit"><div class="label">عدد المنتجات</div>           <div class="value">${filteredProducts.length}</div></div>
         <div class="summary-box">       <div class="label">عدد البلوكات</div>           <div class="value">${r.blocks.length}</div></div>
         <div class="summary-box ${lowStock.length > 0 ? 'loss' : 'profit'}">
           <div class="label">منتجات نقص المخزون</div>
           <div class="value">${lowStock.length}</div>
         </div>
+      </div>
+
+      <div class="filters-bar" style="margin-bottom:12px">
+        <select onchange="window._invFilterType=this.value;renderReportInventory()" style="min-width:160px">
+          <option value="" ${!filterType?'selected':''}>كل الفئات</option>
+          <option value="ألواح رخام" ${filterType==='ألواح رخام'?'selected':''}>ألواح رخام</option>
+          <option value="ألواح جرانيت" ${filterType==='ألواح جرانيت'?'selected':''}>ألواح جرانيت</option>
+          <option value="ألواح ترافرتين" ${filterType==='ألواح ترافرتين'?'selected':''}>ألواح ترافرتين</option>
+          <option value="ألواح أونيكس" ${filterType==='ألواح أونيكس'?'selected':''}>ألواح أونيكس</option>
+          <option value="منتجات مشغولة" ${filterType==='منتجات مشغولة'?'selected':''}>منتجات مشغولة</option>
+        </select>
+        <select onchange="window._invFilterQuality=this.value;renderReportInventory()" style="min-width:140px">
+          <option value="" ${!filterQuality?'selected':''}>كل الدرجات</option>
+          <option value="A" ${filterQuality==='A'?'selected':''}>A - ممتاز</option>
+          <option value="B" ${filterQuality==='B'?'selected':''}>B - جيد</option>
+          <option value="C" ${filterQuality==='C'?'selected':''}>C - عادي</option>
+        </select>
+        <select onchange="window._invFilterStatus=this.value;renderReportInventory()" style="min-width:140px">
+          <option value="" ${!filterStatus?'selected':''}>كل الحالات</option>
+          <option value="low" ${filterStatus==='low'?'selected':''}>نقص مخزون</option>
+          <option value="ok" ${filterStatus==='ok'?'selected':''}>مستوى طبيعي</option>
+        </select>
       </div>
 
       ${lowStock.length > 0 ? `
@@ -222,7 +208,7 @@ async function renderReportInventory() {
           <table>
             <thead><tr><th>الكود</th><th>المنتج</th><th>الفئة</th><th>الوحدة</th><th>المخزون الحالي</th><th>الحد الأدنى</th><th>سعر الكلفة</th><th>القيمة الكلية</th><th>الحالة</th></tr></thead>
             <tbody>
-              ${r.products.map(p => `
+              ${filteredProducts.map(p => `
                 <tr>
                   <td class="number">${p.code}</td>
                   <td><strong>${p.name}</strong></td>
@@ -322,25 +308,6 @@ function exportBSExcel() {
   ]);
   const totalsRow = ['إجمالي الأصول', '', d.total_assets];
   exportGenericExcel({ sheetName: 'الميزانية العمومية', headers, rows, totalsRow, filename: `balance-sheet-${new Date().toISOString().split('T')[0]}.xlsx` });
-}
-
-// ===== EXPORT: WASTE =====
-function exportWastePDF() {
-  const r = window._wasteData;
-  if (!r) { toast('لا توجد بيانات', 'error'); return; }
-  const headers = ['رقم الدفعة', 'البلوك', 'النوع', 'التاريخ', 'الكلي', 'درجة A', 'درجة B', 'هالك', '% الهالك'];
-  const rows = r.details.map(b => [b.batch_number, b.block_code, b.block_type, formatDate(b.date), b.slabs_count, b.grade_a, b.grade_b, b.waste, b.waste_percentage.toFixed(1) + '%']);
-  const totalsRow = ['الإجمالي', '', '', '', r.total_slabs, '', '', r.total_waste_slabs, r.avg_waste_percentage.toFixed(1) + '%'];
-  exportGenericPDF({ title: 'تقرير الهالك', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, totalsRow, filename: `waste-${new Date().toISOString().split('T')[0]}.pdf` });
-}
-
-function exportWasteExcel() {
-  const r = window._wasteData;
-  if (!r) { toast('لا توجد بيانات', 'error'); return; }
-  const headers = ['رقم الدفعة', 'كود البلوك', 'نوع الحجر', 'التاريخ', 'إجمالي الألواح', 'درجة A', 'درجة B', 'هالك', '% الهالك'];
-  const rows = r.details.map(b => [b.batch_number, b.block_code, b.block_type, b.date, b.slabs_count, b.grade_a, b.grade_b, b.waste, b.waste_percentage]);
-  const totalsRow = ['الإجمالي', '', '', '', r.total_slabs, '', '', r.total_waste_slabs, r.avg_waste_percentage];
-  exportGenericExcel({ sheetName: 'تقرير الهالك', headers, rows, totalsRow, filename: `waste-${new Date().toISOString().split('T')[0]}.xlsx` });
 }
 
 // ============================================
@@ -613,205 +580,6 @@ function renderReportCashFlow() {
 }
 
 // ============================================
-// تقرير تكلفة المتر المصنع — Module 8.2
-// ============================================
-function renderReportCostPerMeter() {
-  const content = document.getElementById('page-content');
-
-  // استيراد دالة التكاليف غير المباشرة من cost-centers.js إن وُجدت
-  const getOverhead = (typeof getAllocatedOverhead === 'function')
-    ? getAllocatedOverhead
-    : () => 0;
-
-  const stages = DB.getAll('manufacturing_stages');
-
-  // تجميع البيانات حسب نوع المرحلة
-  const stageMap = {};
-  stages.forEach(s => {
-    const key = s.stage || 'غير محدد';
-    if (!stageMap[key]) {
-      stageMap[key] = {
-        stage: key, directCost: 0, laborCost: 0,
-        materialCost: 0, transportCost: 0, outputQty: 0,
-        wasteQty: 0, count: 0,
-      };
-    }
-    const m = stageMap[key];
-    m.directCost    += s.directCost    || 0;
-    m.laborCost     += s.laborCost     || 0;
-    m.materialCost  += s.materialCost  || 0;
-    m.transportCost += s.transportCost || 0;
-    m.outputQty     += s.outputQuantity|| 0;
-    m.wasteQty      += s.wasteQuantity || 0;
-    m.count++;
-  });
-
-  const rows = Object.values(stageMap);
-  let cumulativeCost = 0;
-
-  const tableRows = rows.length > 0 ? rows.map(r => {
-    const directTotal   = r.directCost + r.laborCost + r.materialCost + r.transportCost;
-    const indirectAlloc = getOverhead(r.stage, '');
-    const totalCost     = directTotal + indirectAlloc;
-    cumulativeCost     += totalCost;
-    const cpm           = r.outputQty > 0 ? totalCost / r.outputQty : 0;
-    const wasteRate     = (r.outputQty + r.wasteQty) > 0
-      ? (r.wasteQty / (r.outputQty + r.wasteQty) * 100).toFixed(1) : '0.0';
-
-    return { r, directTotal, indirectAlloc, totalCost, cumulativeCost: cumulativeCost, cpm, wasteRate };
-  }) : [];
-
-  window._cpmData = tableRows;
-
-  const totalDirect   = rows.reduce((s, r) => s + r.directCost + r.laborCost + r.materialCost + r.transportCost, 0);
-  const totalOutput   = rows.reduce((s, r) => s + r.outputQty, 0);
-  const totalWaste    = rows.reduce((s, r) => s + r.wasteQty, 0);
-  const avgCpm        = totalOutput > 0 ? (totalDirect / totalOutput) : 0;
-
-  content.innerHTML = `
-    <div class="page-header">
-      <div><h2>تقرير تكلفة المتر المصنع</h2><p>تحليل التكلفة لكل مرحلة إنتاج</p></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-secondary" onclick="exportCPMExcel()">📊 Excel</button>
-        <button class="btn btn-secondary" onclick="exportCPMPDF()">📄 PDF</button>
-      </div>
-    </div>
-
-    <div class="report-summary">
-      <div class="summary-box gold">
-        <div class="label">إجمالي التكاليف المباشرة</div>
-        <div class="value">${formatMoney(totalDirect)}</div>
-      </div>
-      <div class="summary-box profit">
-        <div class="label">إجمالي الكمية المنتجة</div>
-        <div class="value">${totalOutput.toFixed(2)} م²</div>
-      </div>
-      <div class="summary-box">
-        <div class="label">متوسط تكلفة المتر</div>
-        <div class="value">${formatMoney(avgCpm)}</div>
-      </div>
-      <div class="summary-box ${totalWaste > 0 ? 'loss' : 'profit'}">
-        <div class="label">إجمالي الهالك</div>
-        <div class="value">${totalWaste.toFixed(2)}</div>
-      </div>
-    </div>
-
-    ${stages.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">🏭</div>
-        <h3>لا توجد مراحل تصنيع مسجلة</h3>
-        <p>سجّل مراحل التصنيع من صفحة "مراحل التصنيع"</p>
-      </div>
-    ` : `
-    <!-- جدول تكلفة المتر -->
-    <div class="card" style="padding:0">
-      <div class="card-header" style="padding:12px 16px">
-        <span class="card-title">📊 تكلفة المتر لكل مرحلة</span>
-      </div>
-      <div class="data-table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>المرحلة</th>
-              <th>عدد العمليات</th>
-              <th>التكلفة المباشرة</th>
-              <th>غير المباشرة</th>
-              <th>الإجمالي</th>
-              <th>الكمية المنتجة</th>
-              <th>تكلفة المتر</th>
-              <th>% الهالك</th>
-              <th>التكلفة التراكمية</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows.map(({ r, directTotal, indirectAlloc, totalCost, cumulativeCost, cpm, wasteRate }) => `
-              <tr>
-                <td><strong>${r.stage}</strong></td>
-                <td class="number">${r.count}</td>
-                <td class="number">${formatMoney(directTotal)}</td>
-                <td class="number text-muted">${formatMoney(indirectAlloc)}</td>
-                <td class="number">${formatMoney(totalCost)}</td>
-                <td class="number">${r.outputQty.toFixed(2)}</td>
-                <td class="number" style="color:var(--accent);font-weight:700">${formatMoney(cpm)}</td>
-                <td class="number ${parseFloat(wasteRate) > 10 ? 'text-danger' : 'text-success'}">${wasteRate}%</td>
-                <td class="number text-muted">${formatMoney(cumulativeCost)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="background:var(--bg-input);font-weight:700">
-              <td>الإجمالي</td>
-              <td class="number">${rows.reduce((s,r)=>s+r.count,0)}</td>
-              <td class="number">${formatMoney(totalDirect)}</td>
-              <td></td>
-              <td class="number">${formatMoney(totalDirect)}</td>
-              <td class="number">${totalOutput.toFixed(2)}</td>
-              <td class="number" style="color:var(--accent)">${formatMoney(avgCpm)}</td>
-              <td class="number ${totalWaste > 0 ? 'text-danger' : 'text-success'}">
-                ${((totalWaste/(totalOutput+totalWaste||1))*100).toFixed(1)}%
-              </td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-    </div>
-
-    <!-- رسم بياني تطور التكلفة -->
-    <div class="card" style="margin-top:16px">
-      <div class="card-header"><span class="card-title">📈 تطور تكلفة المتر عبر مراحل الإنتاج</span></div>
-      <canvas id="cpm-chart" height="60"></canvas>
-    </div>
-    `}
-  `;
-
-  // رسم البياني بعد تحديث DOM
-  if (tableRows.length > 0) {
-    requestAnimationFrame(() => {
-      const ctx = document.getElementById('cpm-chart');
-      if (!ctx) return;
-      new Chart(ctx.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: tableRows.map(d => d.r.stage),
-          datasets: [
-            {
-              label: 'تكلفة المتر (ج.م/م²)',
-              data: tableRows.map(d => d.cpm.toFixed(2)),
-              backgroundColor: 'rgba(200,169,110,0.3)',
-              borderColor: '#c8a96e',
-              borderWidth: 2,
-              borderRadius: 4,
-              yAxisID: 'y',
-            },
-            {
-              type: 'line',
-              label: 'التكلفة التراكمية',
-              data: tableRows.map(d => d.cumulativeCost.toFixed(2)),
-              borderColor: '#4caf9e',
-              backgroundColor: 'transparent',
-              borderWidth: 2,
-              pointRadius: 4,
-              tension: 0.3,
-              yAxisID: 'y1',
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#8892aa', font: { family: 'Cairo' } } } },
-          scales: {
-            x:  { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.5)' } },
-            y:  { ticks: { color: '#8892aa' }, grid: { color: 'rgba(42,47,63,0.5)' }, position: 'right' },
-            y1: { ticks: { color: '#4caf9e' }, grid: { drawOnChartArea: false }, position: 'left' },
-          },
-        },
-      });
-    });
-  }
-}
-
-// ============================================
 // تقرير ربحية التصدير — Module 8.3
 // ============================================
 function renderReportExportProfit() {
@@ -988,17 +756,23 @@ function renderReportExportProfit() {
 function renderReportInventoryMovement() {
   const content = document.getElementById('page-content');
 
+  const filterMoveType = window._imFilterType || ''; // '' | 'in' | 'out'
+  const filterDateFrom = window._imFilterFrom || '';
+  const filterDateTo   = window._imFilterTo   || '';
+
   const products   = DB.getAll('products');
-  const sales      = DB.getAll('sales').filter(s => s.status !== 'cancelled' && s.status !== 'draft');
-  const purchases  = DB.getAll('purchases').filter(p => p.status !== 'cancelled' && p.status !== 'draft');
+  const allSales   = DB.getAll('sales').filter(s => s.status !== 'cancelled' && s.status !== 'draft');
+  const allPurchases = DB.getAll('purchases').filter(p => p.status !== 'cancelled' && p.status !== 'draft');
 
   // بناء حركة كل منتج
   const movements = products.map(p => {
     // المبيعات: خروج
     const salesItems = [];
-    sales.forEach(s => {
+    allSales.forEach(s => {
       (s.items || []).forEach(item => {
         if (item.product_id === p.id || item.product === p.name) {
+          if (filterDateFrom && s.invoice_date < filterDateFrom) return;
+          if (filterDateTo   && s.invoice_date > filterDateTo)   return;
           salesItems.push({
             date: s.invoice_date, ref: s.invoice_number,
             type: 'صادر', qty: -(item.qty || 0), amount: item.subtotal || 0
@@ -1009,9 +783,11 @@ function renderReportInventoryMovement() {
 
     // المشتريات: وارد
     const purchaseItems = [];
-    purchases.forEach(pur => {
+    allPurchases.forEach(pur => {
       (pur.items || []).forEach(item => {
         if (item.product_id === p.id || item.product === p.name) {
+          if (filterDateFrom && pur.invoice_date < filterDateFrom) return;
+          if (filterDateTo   && pur.invoice_date > filterDateTo)   return;
           purchaseItems.push({
             date: pur.invoice_date, ref: pur.invoice_number,
             type: 'وارد', qty: item.qty || 0, amount: item.subtotal || 0
@@ -1020,14 +796,17 @@ function renderReportInventoryMovement() {
       });
     });
 
-    const allMoves  = [...salesItems, ...purchaseItems]
+    let allMoves  = [...salesItems, ...purchaseItems]
       .sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (filterMoveType === 'in')  allMoves = allMoves.filter(m => m.qty > 0);
+    if (filterMoveType === 'out') allMoves = allMoves.filter(m => m.qty < 0);
+
     const totalIn   = allMoves.filter(m => m.qty > 0).reduce((s, m) => s + m.qty, 0);
     const totalOut  = Math.abs(allMoves.filter(m => m.qty < 0).reduce((s, m) => s + m.qty, 0));
-    const fifoValue = p.stock_qty * p.cost; // تقييم بسعر الكلفة الحالي = المخزون الحالي × سعر الكلفة
+    const fifoValue = p.stock_qty * p.cost;
 
     return { p, allMoves, totalIn, totalOut, fifoValue };
-  });
+  }).filter(m => filterMoveType === '' || (filterMoveType === 'in' ? m.totalIn > 0 : m.totalOut > 0));
 
   const grandTotal = movements.reduce((s, m) => s + m.fifoValue, 0);
 
@@ -1042,6 +821,20 @@ function renderReportInventoryMovement() {
       </div>
     </div>
 
+    <div class="filters-bar" style="margin-bottom:12px">
+      <select onchange="window._imFilterType=this.value;renderReportInventoryMovement()" style="min-width:160px">
+        <option value="" ${!filterMoveType?'selected':''}>كل أنواع الحركة</option>
+        <option value="in" ${filterMoveType==='in'?'selected':''}>واردات (استلام)</option>
+        <option value="out" ${filterMoveType==='out'?'selected':''}>صادرات (شحن / مبيعات)</option>
+      </select>
+      <label style="color:var(--text-secondary);font-size:13px">من:</label>
+      <input type="date" value="${filterDateFrom}" style="width:150px"
+        onchange="window._imFilterFrom=this.value;renderReportInventoryMovement()">
+      <label style="color:var(--text-secondary);font-size:13px">إلى:</label>
+      <input type="date" value="${filterDateTo}" style="width:150px"
+        onchange="window._imFilterTo=this.value;renderReportInventoryMovement()">
+    </div>
+
     <div class="report-summary">
       <div class="summary-box gold">
         <div class="label">إجمالي قيمة المخزون (بالتكلفة الحالية)</div>
@@ -1049,7 +842,7 @@ function renderReportInventoryMovement() {
       </div>
       <div class="summary-box profit">
         <div class="label">عدد الأصناف</div>
-        <div class="value">${products.length}</div>
+        <div class="value">${movements.length}</div>
       </div>
       <div class="summary-box">
         <div class="label">إجمالي الوارد</div>
@@ -1113,6 +906,142 @@ function renderReportInventoryMovement() {
       </div>
     </div>
   `;
+}
+
+
+// ============================================
+// تقرير تكلفة الأمر — Module 8.6
+// ============================================
+function renderReportOrderCost() {
+  const content = document.getElementById('page-content');
+
+  const exportOrders = DB.getAll('export_orders');
+  const purchases    = DB.getAll('purchases');
+  const expenses     = DB.getAll('expenses');
+  const shipments    = DB.getAll('shipments');
+  const mfgStages    = DB.getAll('manufacturing_stages');
+
+  const rows = exportOrders.map(o => {
+    const orderId = o.id;
+    const orderNo = o.exportOrderNo || o.id;
+
+    // مشتريات مرتبطة بهذا الأمر
+    const relPurchases = purchases.filter(p => p.export_order_id === orderId || p.order_id === orderId);
+    const purchaseCost = relPurchases.reduce((s, p) => s + (p.total_amount || 0), 0);
+
+    // مصروفات مرتبطة
+    const relExpenses  = expenses.filter(e => e.export_order_id === orderId || e.order_id === orderId);
+    const expenseCost  = relExpenses.reduce((s, e) => s + (e.amount || 0), 0);
+
+    // تكاليف الشحن
+    const relShipments = shipments.filter(s => s.export_order_id === orderId || s.order_id === orderId);
+    const shipCost     = relShipments.reduce((s, sh) => s + (sh.freight_cost || sh.cost || 0), 0);
+
+    // تكاليف التصنيع
+    const relMfg       = mfgStages.filter(m => m.export_order_id === orderId || m.order_id === orderId);
+    const mfgCost      = relMfg.reduce((s, m) => s + (m.directCost||0)+(m.laborCost||0)+(m.materialCost||0)+(m.transportCost||0), 0);
+
+    // الإجمالي
+    const totalCost    = purchaseCost + expenseCost + shipCost + mfgCost + (o.totalCost || 0);
+    const revenue      = o.totalRevenue || 0;
+    const profit       = revenue - totalCost;
+    const margin       = revenue > 0 ? (profit / revenue * 100) : 0;
+
+    return { o, orderNo, purchaseCost, expenseCost, shipCost, mfgCost, totalCost, revenue, profit, margin };
+  }).sort((a, b) => b.revenue - a.revenue);
+
+  const grandRev     = rows.reduce((s, r) => s + r.revenue, 0);
+  const grandCost    = rows.reduce((s, r) => s + r.totalCost, 0);
+  const grandProfit  = grandRev - grandCost;
+  const grandMargin  = grandRev > 0 ? (grandProfit / grandRev * 100).toFixed(1) : '0.0';
+
+  window._ocData = rows;
+
+  content.innerHTML = `
+    <div class="page-header">
+      <div><h2>تقرير تكلفة الأمر</h2><p>تحليل تكاليف وربحية أوامر التصدير</p></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="exportOCExcel()">📊 Excel</button>
+        <button class="btn btn-secondary" onclick="exportOCPDF()">📄 PDF</button>
+      </div>
+    </div>
+
+    <div class="report-summary">
+      <div class="summary-box gold"><div class="label">إجمالي الإيرادات</div><div class="value">${formatMoney(grandRev)}</div></div>
+      <div class="summary-box loss"><div class="label">إجمالي التكاليف</div><div class="value">${formatMoney(grandCost)}</div></div>
+      <div class="summary-box ${parseFloat(grandMargin)>=0?'profit':'loss'}"><div class="label">إجمالي الربح</div><div class="value">${formatMoney(grandProfit)}</div></div>
+      <div class="summary-box"><div class="label">متوسط هامش الربح</div><div class="value">${grandMargin}%</div></div>
+    </div>
+
+    ${exportOrders.length === 0 ? `
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>لا توجد أوامر تصدير</h3>
+        <p>أنشئ أوامر تصدير من صفحة "نظام التصدير"</p>
+      </div>
+    ` : `
+    <div class="card" style="padding:0">
+      <div class="data-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>رقم الأمر</th>
+              <th>العميل</th>
+              <th>مشتريات</th>
+              <th>تصنيع</th>
+              <th>شحن</th>
+              <th>مصروفات</th>
+              <th>إجمالي التكاليف</th>
+              <th>الإيراد</th>
+              <th>الربح</th>
+              <th>الهامش%</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td class="number"><strong>${r.orderNo}</strong></td>
+                <td>${r.o.customerName || '-'}</td>
+                <td class="number">${formatMoney(r.purchaseCost)}</td>
+                <td class="number">${formatMoney(r.mfgCost)}</td>
+                <td class="number">${formatMoney(r.shipCost)}</td>
+                <td class="number">${formatMoney(r.expenseCost)}</td>
+                <td class="number text-danger">${formatMoney(r.totalCost)}</td>
+                <td class="number text-success">${formatMoney(r.revenue)}</td>
+                <td class="number ${r.profit>=0?'text-success':'text-danger'}" style="font-weight:700">${formatMoney(r.profit)}</td>
+                <td class="number ${r.margin>=20?'text-success':r.margin>0?'text-warning':'text-danger'}">${r.margin.toFixed(1)}%</td>
+              </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--bg-input);font-weight:700">
+              <td colspan="6">الإجمالي</td>
+              <td class="number text-danger">${formatMoney(grandCost)}</td>
+              <td class="number text-success">${formatMoney(grandRev)}</td>
+              <td class="number ${parseFloat(grandMargin)>=0?'text-success':'text-danger'}">${formatMoney(grandProfit)}</td>
+              <td class="number">${grandMargin}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    `}
+  `;
+}
+
+function exportOCPDF() {
+  const d = window._ocData;
+  if (!d || !d.length) { toast('لا توجد بيانات', 'error'); return; }
+  const headers = ['رقم الأمر', 'العميل', 'إجمالي التكاليف', 'الإيراد', 'الربح', 'الهامش%'];
+  const rows = d.map(r => [r.orderNo, r.o.customerName||'-', r.totalCost.toFixed(2), r.revenue.toFixed(2), r.profit.toFixed(2), r.margin.toFixed(1)+'%']);
+  exportGenericPDF({ title: 'تقرير تكلفة الأمر', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, filename: `order-cost-${new Date().toISOString().split('T')[0]}.pdf` });
+}
+
+function exportOCExcel() {
+  const d = window._ocData;
+  if (!d || !d.length) { toast('لا توجد بيانات', 'error'); return; }
+  const headers = ['رقم الأمر', 'العميل', 'مشتريات', 'تصنيع', 'شحن', 'مصروفات', 'إجمالي التكاليف', 'الإيراد', 'الربح', 'الهامش%'];
+  const rows = d.map(r => [r.orderNo, r.o.customerName||'-', r.purchaseCost, r.mfgCost, r.shipCost, r.expenseCost, r.totalCost, r.revenue, r.profit, parseFloat(r.margin.toFixed(1))]);
+  exportGenericExcel({ sheetName: 'تكلفة الأمر', headers, rows, filename: `order-cost-${new Date().toISOString().split('T')[0]}.xlsx` });
 }
 
 // ============================================
@@ -1298,29 +1227,6 @@ function exportCashFlowExcel() {
     ['صافي التدفق النقدي',      d.netCashFlow],
   ];
   exportGenericExcel({ sheetName: 'التدفقات النقدية', headers, rows, filename: `cashflow-${new Date().toISOString().split('T')[0]}.xlsx` });
-}
-
-// ============================================
-// تصدير تقرير تكلفة المتر
-// ============================================
-function exportCPMPDF() {
-  const d = window._cpmData;
-  if (!d || !d.length) { toast('لا توجد بيانات', 'error'); return; }
-  const headers = ['المرحلة', 'التكلفة المباشرة', 'غير المباشرة', 'الكمية م²', 'تكلفة المتر', '% الهالك'];
-  const rows = d.map(({ r, directTotal, indirectAlloc, cpm, wasteRate }) => [
-    r.stage, directTotal.toFixed(2), indirectAlloc.toFixed(2), r.outputQty.toFixed(2), cpm.toFixed(2), wasteRate + '%'
-  ]);
-  exportGenericPDF({ title: 'تقرير تكلفة المتر المصنع', subtitle: 'نظام ERP - الرخام والجرانيت', headers, rows, filename: `cost-per-meter-${new Date().toISOString().split('T')[0]}.pdf` });
-}
-
-function exportCPMExcel() {
-  const d = window._cpmData;
-  if (!d || !d.length) { toast('لا توجد بيانات', 'error'); return; }
-  const headers = ['المرحلة', 'عدد العمليات', 'التكلفة المباشرة', 'غير المباشرة', 'الإجمالي', 'الكمية م²', 'تكلفة المتر', '% الهالك', 'التكلفة التراكمية'];
-  const rows = d.map(({ r, directTotal, indirectAlloc, totalCost, cumulativeCost, cpm, wasteRate }) => [
-    r.stage, r.count, directTotal, indirectAlloc, totalCost, r.outputQty, cpm, parseFloat(wasteRate), cumulativeCost
-  ]);
-  exportGenericExcel({ sheetName: 'تكلفة المتر', headers, rows, filename: `cost-per-meter-${new Date().toISOString().split('T')[0]}.xlsx` });
 }
 
 // ============================================

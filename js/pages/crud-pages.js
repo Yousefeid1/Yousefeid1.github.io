@@ -21,8 +21,11 @@ async function renderProducts() {
         <input type="text" id="prod-search" placeholder="بحث بالاسم أو الكود..." oninput="filterProducts()" style="flex:1">
         <select id="prod-cat" onchange="filterProducts()">
           <option value="">كل الفئات</option>
-          <option value="رخام">رخام</option>
-          <option value="جرانيت">جرانيت</option>
+          <option value="ألواح رخام">ألواح رخام</option>
+          <option value="ألواح جرانيت">ألواح جرانيت</option>
+          <option value="ألواح ترافرتين">ألواح ترافرتين</option>
+          <option value="ألواح أونيكس">ألواح أونيكس</option>
+          <option value="منتجات مشغولة">منتجات مشغولة</option>
         </select>
       </div>
       <div class="card" style="padding:0">
@@ -74,8 +77,11 @@ function openNewProductModal() {
       <div class="form-group">
         <label>الفئة *</label>
         <select id="np2-cat">
-          <option value="رخام">رخام</option>
-          <option value="جرانيت">جرانيت</option>
+          <option value="ألواح رخام">ألواح رخام</option>
+          <option value="ألواح جرانيت">ألواح جرانيت</option>
+          <option value="ألواح ترافرتين">ألواح ترافرتين</option>
+          <option value="ألواح أونيكس">ألواح أونيكس</option>
+          <option value="منتجات مشغولة">منتجات مشغولة (حوض / درج / إلخ)</option>
         </select>
       </div>
       <div class="form-group">
@@ -90,6 +96,16 @@ function openNewProductModal() {
       <div class="form-group"><label>سعر البيع</label><input type="number" id="np2-price" min="0" value="0"></div>
       <div class="form-group"><label>المخزون الحالي</label><input type="number" id="np2-stock" min="0" value="0"></div>
       <div class="form-group"><label>الحد الأدنى للمخزون</label><input type="number" id="np2-min" min="0" value="10"></div>
+      <div class="form-group">
+        <label>درجة الجودة الافتراضية</label>
+        <select id="np2-quality">
+          <option value="">-- اختر الدرجة --</option>
+          <option value="A">A - ممتاز</option>
+          <option value="B">B - جيد</option>
+          <option value="C">C - عادي</option>
+        </select>
+      </div>
+      <div class="form-group"><label>بلد المنشأ</label><input type="text" id="np2-origin" placeholder="مثال: مصر، إيطاليا، تركيا"></div>
     </div>
     <div style="margin-top:16px;text-align:left">
       <button class="btn btn-primary" onclick="saveProduct()">💾 حفظ</button>
@@ -109,6 +125,8 @@ async function saveProduct() {
     price:     parseFloat(document.getElementById('np2-price').value) || 0,
     stock_qty: parseFloat(document.getElementById('np2-stock').value) || 0,
     min_stock: parseFloat(document.getElementById('np2-min').value)   || 0,
+    default_quality: document.getElementById('np2-quality').value || '',
+    origin_country:  document.getElementById('np2-origin').value || '',
     status:    'in_stock',
   });
   closeModal();
@@ -301,13 +319,15 @@ function openNewExpenseModal() {
         <label>الفئة *</label>
         <select id="nexp-cat">
           <option value="رواتب وأجور">رواتب وأجور</option>
-          <option value="صيانة وإصلاح">صيانة وإصلاح</option>
-          <option value="مرافق">مرافق</option>
-          <option value="نقل وشحن">نقل وشحن</option>
-          <option value="مواد استهلاكية">مواد استهلاكية</option>
-          <option value="إيجارات">إيجارات</option>
-          <option value="تسويق وإعلان">تسويق وإعلان</option>
-          <option value="أخرى">أخرى</option>
+          <option value="إيجار">إيجار</option>
+          <option value="كهرباء ومياه">كهرباء ومياه</option>
+          <option value="مصاريف شحن">مصاريف شحن</option>
+          <option value="مصاريف جمارك وتخليص">مصاريف جمارك وتخليص</option>
+          <option value="عمولات تصدير">عمولات تصدير</option>
+          <option value="مصاريف تسويق">مصاريف تسويق</option>
+          <option value="مصاريف إدارية">مصاريف إدارية</option>
+          <option value="صيانة المستودعات">صيانة المستودعات</option>
+          <option value="مصاريف أخرى">مصاريف أخرى</option>
         </select>
       </div>
       <div class="form-group"><label>المبلغ *</label><input type="number" id="nexp-amount" min="0" step="0.01"></div>
@@ -362,14 +382,57 @@ async function renderSettings() {
         <div class="card-header"><span class="card-title">🏢 بيانات الشركة</span></div>
         <div class="form-grid">
           <div class="form-group form-full"><label>اسم الشركة</label><input type="text" id="set-name"     value="${s.company_name || ''}"></div>
+          <div class="form-group"><label>بلد الشركة</label><input type="text" id="set-country" value="${s.country || ''}" placeholder="مثال: مصر"></div>
           <div class="form-group"><label>الهاتف</label>            <input type="text" id="set-phone"    value="${s.phone || ''}"></div>
           <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="set-email"    value="${s.email || ''}"></div>
           <div class="form-group form-full"><label>العنوان</label>  <input type="text" id="set-address"  value="${s.address || ''}"></div>
-          <div class="form-group"><label>العملة</label>            <input type="text" id="set-currency" value="${s.currency || 'EGP'}"></div>
+          <div class="form-group"><label>العملة الرئيسية</label>
+            <select id="set-currency">
+              <option value="EGP" ${(s.currency||'EGP')==='EGP'?'selected':''}>جنيه مصري (EGP)</option>
+              <option value="USD" ${s.currency==='USD'?'selected':''}>دولار أمريكي (USD)</option>
+              <option value="EUR" ${s.currency==='EUR'?'selected':''}>يورو (EUR)</option>
+              <option value="SAR" ${s.currency==='SAR'?'selected':''}>ريال سعودي (SAR)</option>
+              <option value="AED" ${s.currency==='AED'?'selected':''}>درهم إماراتي (AED)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>العملات الأخرى المستخدمة</label>
+            <div style="display:flex;flex-direction:column;gap:4px;padding:8px;background:var(--bg-input);border-radius:6px">
+              ${['USD','EUR','GBP','SAR','AED'].map(c => `
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+                  <input type="checkbox" id="set-cur-${c}" ${((s.extra_currencies||[]).includes(c))?'checked':''}>
+                  ${c}
+                </label>`).join('')}
+            </div>
+          </div>
           <div class="form-group"><label>نسبة ضريبة القيمة المضافة (%)</label><input type="number" id="set-tax" value="${s.tax_rate || 14}" min="0" max="100"></div>
+          <div class="form-group"><label>شروط الدفع الافتراضية</label>
+            <select id="set-payment-terms">
+              <option value="نقداً" ${(s.payment_terms||'')==='نقداً'?'selected':''}>نقداً</option>
+              <option value="30 يوم" ${(s.payment_terms||'')==='30 يوم'?'selected':''}>30 يوم</option>
+              <option value="60 يوم" ${(s.payment_terms||'')==='60 يوم'?'selected':''}>60 يوم</option>
+              <option value="90 يوم" ${(s.payment_terms||'')==='90 يوم'?'selected':''}>90 يوم</option>
+              <option value="عند التسليم" ${(s.payment_terms||'')==='عند التسليم'?'selected':''}>عند التسليم</option>
+            </select>
+          </div>
           <div class="form-group"><label>حد الموافقة على الفواتير (ج.م) — 0 لتعطيل</label><input type="number" id="set-approval-limit" value="${s.approval_limit || 0}" min="0" placeholder="مثال: 50000"></div>
         </div>
         <div style="margin-top:20px;text-align:left">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">🏦 بيانات البنك الرئيسي</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>اسم البنك</label><input type="text" id="set-bank-name" value="${s.bank_name || ''}" placeholder="مثال: البنك الأهلي المصري"></div>
+          <div class="form-group"><label>اسم صاحب الحساب</label><input type="text" id="set-bank-account-name" value="${s.bank_account_name || ''}"></div>
+          <div class="form-group"><label>رقم الحساب / IBAN</label><input type="text" id="set-bank-account-no" value="${s.bank_account_no || ''}"></div>
+          <div class="form-group"><label>كود السويفت (SWIFT)</label><input type="text" id="set-bank-swift" value="${s.bank_swift || ''}" placeholder="XXXXEGCX"></div>
+          <div class="form-group"><label>عملة الحساب</label><input type="text" id="set-bank-currency" value="${s.bank_currency || 'EGP'}"></div>
+          <div class="form-group"><label>فرع البنك</label><input type="text" id="set-bank-branch" value="${s.bank_branch || ''}"></div>
+        </div>
+        <div style="margin-top:16px;text-align:left">
           <button class="btn btn-primary" onclick="saveSettings()">💾 حفظ الإعدادات</button>
         </div>
       </div>
@@ -517,12 +580,21 @@ async function renderSettings() {
 async function saveSettings() {
   const data = {
     company_name:      document.getElementById('set-name').value,
+    country:           document.getElementById('set-country')?.value || '',
     phone:             document.getElementById('set-phone').value,
     email:             document.getElementById('set-email').value,
     address:           document.getElementById('set-address').value,
     currency:          document.getElementById('set-currency').value,
+    extra_currencies:  ['USD','EUR','GBP','SAR','AED'].filter(c => document.getElementById('set-cur-'+c)?.checked),
     tax_rate:          parseFloat(document.getElementById('set-tax').value) || 14,
+    payment_terms:     document.getElementById('set-payment-terms')?.value || '',
     approval_limit:    parseFloat(document.getElementById('set-approval-limit')?.value) || 0,
+    bank_name:         document.getElementById('set-bank-name')?.value || '',
+    bank_account_name: document.getElementById('set-bank-account-name')?.value || '',
+    bank_account_no:   document.getElementById('set-bank-account-no')?.value || '',
+    bank_swift:        document.getElementById('set-bank-swift')?.value || '',
+    bank_currency:     document.getElementById('set-bank-currency')?.value || 'EGP',
+    bank_branch:       document.getElementById('set-bank-branch')?.value || '',
     // إعدادات تيليجرام
     tgBotToken:        (document.getElementById('set-tgBotToken')?.value  || '').trim(),
     tgChatId:          (document.getElementById('set-tgChatId')?.value    || '').trim(),

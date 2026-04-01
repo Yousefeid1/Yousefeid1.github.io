@@ -121,7 +121,18 @@ function openNewEmployeeModal() {
       </div>
       <div class="form-group">
         <label>القسم</label>
-        <input type="text" id="nemp-dept" placeholder="مثال: المحاسبة، المبيعات...">
+        <select id="nemp-dept">
+          <option value="">-- اختر القسم --</option>
+          <option value="المشتريات">المشتريات</option>
+          <option value="المخازن">المخازن</option>
+          <option value="التصنيع">التصنيع</option>
+          <option value="التصدير">التصدير</option>
+          <option value="المبيعات والعملاء">المبيعات والعملاء</option>
+          <option value="المحاسبة">المحاسبة</option>
+          <option value="اللوجستيك والشحن">اللوجستيك والشحن</option>
+          <option value="الموارد البشرية">الموارد البشرية</option>
+          <option value="الإدارة">الإدارة</option>
+        </select>
       </div>
       <div class="form-group">
         <label>الهاتف</label>
@@ -229,7 +240,18 @@ function openEditEmployeeModal(id) {
       </div>
       <div class="form-group">
         <label>القسم</label>
-        <input type="text" id="eemp-dept" value="${u.department || ''}">
+        <select id="eemp-dept">
+          <option value="">-- اختر القسم --</option>
+          <option value="المشتريات" ${(u.department||'') === 'المشتريات' ? 'selected' : ''}>المشتريات</option>
+          <option value="المخازن" ${(u.department||'') === 'المخازن' ? 'selected' : ''}>المخازن</option>
+          <option value="التصنيع" ${(u.department||'') === 'التصنيع' ? 'selected' : ''}>التصنيع</option>
+          <option value="التصدير" ${(u.department||'') === 'التصدير' ? 'selected' : ''}>التصدير</option>
+          <option value="المبيعات والعملاء" ${(u.department||'') === 'المبيعات والعملاء' ? 'selected' : ''}>المبيعات والعملاء</option>
+          <option value="المحاسبة" ${(u.department||'') === 'المحاسبة' ? 'selected' : ''}>المحاسبة</option>
+          <option value="اللوجستيك والشحن" ${(u.department||'') === 'اللوجستيك والشحن' ? 'selected' : ''}>اللوجستيك والشحن</option>
+          <option value="الموارد البشرية" ${(u.department||'') === 'الموارد البشرية' ? 'selected' : ''}>الموارد البشرية</option>
+          <option value="الإدارة" ${(u.department||'') === 'الإدارة' ? 'selected' : ''}>الإدارة</option>
+        </select>
       </div>
       <div class="form-group">
         <label>الهاتف</label>

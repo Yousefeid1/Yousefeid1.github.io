@@ -37,8 +37,8 @@ async function renderWarehouses() {
         <div class="data-table-wrapper">
           <table>
             <thead><tr>
-              <th>اسم المستودع</th><th>الموقع</th><th>المسؤول</th>
-              <th>السعة (م²)</th><th>الحالة</th><th>ملاحظات</th><th>إجراءات</th>
+              <th>اسم المستودع</th><th>النوع</th><th>الموقع</th><th>المسؤول</th>
+              <th>الطاقة (م²)</th><th>نسبة الامتلاء</th><th>الحالة</th><th>ملاحظات</th><th>إجراءات</th>
             </tr></thead>
             <tbody id="wh-tbody">${renderWarehouseRows(warehouses)}</tbody>
           </table>
@@ -69,13 +69,28 @@ async function renderWarehouses() {
 }
 
 function renderWarehouseRows(warehouses) {
-  if (!warehouses.length) return `<tr><td colspan="7"><div class="empty-state" style="padding:40px"><div class="empty-icon">🏭</div><h3>لا توجد مستودعات</h3></div></td></tr>`;
-  return warehouses.map(w => `
+  if (!warehouses.length) return `<tr><td colspan="9"><div class="empty-state" style="padding:40px"><div class="empty-icon">🏭</div><h3>لا توجد مستودعات</h3></div></td></tr>`;
+  return warehouses.map(w => {
+    const cap = w.capacity || 0;
+    const cur = w.current_qty || 0;
+    const occupancyPct = cap > 0 ? Math.min(100, (cur / cap * 100)) : 0;
+    const occupancyColor = occupancyPct >= 90 ? 'var(--danger)' : occupancyPct >= 70 ? 'var(--warning)' : 'var(--success)';
+    return `
     <tr>
       <td><strong>${w.name}</strong></td>
+      <td><span class="badge badge-info">${w.warehouse_type || '-'}</span></td>
       <td>${w.location || '-'}</td>
       <td>${w.manager || '-'}</td>
-      <td class="number">${(w.capacity || 0).toLocaleString('ar-EG')} م²</td>
+      <td class="number">${(cap).toLocaleString('ar-EG')} م²</td>
+      <td>
+        ${cap > 0 ? `
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="flex:1;height:8px;background:var(--bg-input);border-radius:4px;overflow:hidden;min-width:60px">
+              <div style="height:100%;width:${occupancyPct.toFixed(0)}%;background:${occupancyColor};border-radius:4px;transition:width .3s"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:${occupancyColor}">${occupancyPct.toFixed(0)}%</span>
+          </div>` : '<span class="text-muted">-</span>'}
+      </td>
       <td>${w.status === 'active' ? '<span class="badge badge-success">نشط</span>' : '<span class="badge badge-danger">مغلق</span>'}</td>
       <td class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${w.notes || '-'}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -87,7 +102,8 @@ function renderWarehouseRows(warehouses) {
         </button>
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderShipmentPreviewRows(shipments) {
@@ -111,6 +127,15 @@ function openNewWarehouseModal() {
         <input type="text" id="nwh-name" placeholder="اسم المستودع">
       </div>
       <div class="form-group">
+        <label>نوع المستودع</label>
+        <select id="nwh-type">
+          <option value="مستودع كتل خام">مستودع كتل خام</option>
+          <option value="مستودع إنتاج">مستودع إنتاج</option>
+          <option value="مستودع ألواح جاهزة">مستودع ألواح جاهزة</option>
+          <option value="مستودع خارجي">مستودع خارجي</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>الموقع *</label>
         <input type="text" id="nwh-location" placeholder="المدينة، المنطقة">
       </div>
@@ -119,8 +144,12 @@ function openNewWarehouseModal() {
         <input type="text" id="nwh-manager" placeholder="اسم المسؤول">
       </div>
       <div class="form-group">
-        <label>السعة الاستيعابية (م²)</label>
+        <label>الطاقة الاستيعابية (م²)</label>
         <input type="number" id="nwh-capacity" placeholder="0" min="0">
+      </div>
+      <div class="form-group">
+        <label>الكمية الحالية (م²)</label>
+        <input type="number" id="nwh-current" placeholder="0" min="0">
       </div>
       <div class="form-group form-full">
         <label>ملاحظات</label>
@@ -139,9 +168,11 @@ async function saveNewWarehouse() {
   try {
     await api.createWarehouse({
       name,
+      warehouse_type: document.getElementById('nwh-type').value,
       location: document.getElementById('nwh-location').value,
       manager:  document.getElementById('nwh-manager').value,
       capacity: parseFloat(document.getElementById('nwh-capacity').value) || 0,
+      current_qty: parseFloat(document.getElementById('nwh-current').value) || 0,
       notes:    document.getElementById('nwh-notes').value,
     });
     closeModal();
@@ -163,6 +194,15 @@ function openEditWarehouseModal(id) {
         <input type="text" id="ewh-name" value="${w.name}">
       </div>
       <div class="form-group">
+        <label>نوع المستودع</label>
+        <select id="ewh-type">
+          <option value="مستودع كتل خام" ${(w.warehouse_type||'')==='مستودع كتل خام'?'selected':''}>مستودع كتل خام</option>
+          <option value="مستودع إنتاج" ${(w.warehouse_type||'')==='مستودع إنتاج'?'selected':''}>مستودع إنتاج</option>
+          <option value="مستودع ألواح جاهزة" ${(w.warehouse_type||'')==='مستودع ألواح جاهزة'?'selected':''}>مستودع ألواح جاهزة</option>
+          <option value="مستودع خارجي" ${(w.warehouse_type||'')==='مستودع خارجي'?'selected':''}>مستودع خارجي</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label>الموقع</label>
         <input type="text" id="ewh-location" value="${w.location || ''}">
       </div>
@@ -171,8 +211,12 @@ function openEditWarehouseModal(id) {
         <input type="text" id="ewh-manager" value="${w.manager || ''}">
       </div>
       <div class="form-group">
-        <label>السعة الاستيعابية (م²)</label>
+        <label>الطاقة الاستيعابية (م²)</label>
         <input type="number" id="ewh-capacity" value="${w.capacity || 0}" min="0">
+      </div>
+      <div class="form-group">
+        <label>الكمية الحالية (م²)</label>
+        <input type="number" id="ewh-current" value="${w.current_qty || 0}" min="0">
       </div>
       <div class="form-group form-full">
         <label>ملاحظات</label>
@@ -191,9 +235,11 @@ async function saveEditWarehouse(id) {
   try {
     await api.updateWarehouse(id, {
       name,
+      warehouse_type: document.getElementById('ewh-type').value,
       location: document.getElementById('ewh-location').value,
       manager:  document.getElementById('ewh-manager').value,
       capacity: parseFloat(document.getElementById('ewh-capacity').value) || 0,
+      current_qty: parseFloat(document.getElementById('ewh-current').value) || 0,
       notes:    document.getElementById('ewh-notes').value,
     });
     closeModal();
@@ -251,10 +297,10 @@ async function renderShipments() {
         <input type="text" id="shp-search" placeholder="بحث برقم الشحنة أو العميل..." oninput="filterShipments()" style="flex:1;min-width:200px">
         <select id="shp-status-filter" onchange="filterShipments()">
           <option value="">كل الحالات</option>
-          <option value="pending">قيد التنفيذ</option>
-          <option value="ready_to_ship">مستعد للشحن</option>
+          <option value="pending">قيد التنفيذ / جاري التحضير</option>
+          <option value="ready_to_ship">تم التحميل / مستعد للشحن</option>
           <option value="in_transit">في الطريق</option>
-          <option value="arrived">وصل المخزن/العميل</option>
+          <option value="arrived">وصل الميناء / المخزن</option>
           <option value="delivered">تم التسليم</option>
           <option value="cancelled">ملغاة</option>
         </select>
@@ -273,10 +319,11 @@ async function renderShipments() {
               <th>نوع الشحن</th>
               <th>الفاتورة</th>
               <th>العميل</th>
+              <th>الشركة الناقلة</th>
               <th>الوجهة</th>
-              <th>السائق / المركبة</th>
+              <th>رقم الحاوية</th>
               <th>تاريخ الشحن</th>
-              <th>تاريخ التسليم</th>
+              <th>ETA</th>
               <th>العملة</th>
               <th>الحالة</th>
               <th>إجراءات</th>
@@ -294,20 +341,18 @@ async function renderShipments() {
 }
 
 function renderShipmentRows(shipments) {
-  if (!shipments.length) return `<tr><td colspan="11"><div class="empty-state" style="padding:40px"><div class="empty-icon">🚛</div><h3>لا توجد شحنات</h3></div></td></tr>`;
+  if (!shipments.length) return `<tr><td colspan="12"><div class="empty-state" style="padding:40px"><div class="empty-icon">🚛</div><h3>لا توجد شحنات</h3></div></td></tr>`;
   return shipments.map(s => `
     <tr>
       <td class="number"><strong>${s.shipment_number}</strong></td>
       <td><span class="badge ${s.ship_type === 'بحري' ? 'badge-info' : 'badge-warning'}">${s.ship_type === 'بحري' ? '🚢 بحري' : '🚛 بري'}</span></td>
       <td class="number">${buildNavLink(s.invoice_number, 'sales', s.invoice_id) || '-'}</td>
       <td>${s.customer}</td>
+      <td>${s.carrier || '-'}</td>
       <td>${s.destination || '-'}</td>
-      <td>
-        <span>${s.driver || '-'}</span>
-        ${s.vehicle ? `<br><small class="text-muted">${s.vehicle}</small>` : ''}
-      </td>
+      <td class="number">${s.container_no || '-'}</td>
       <td>${formatDate(s.shipment_date)}</td>
-      <td>${s.delivery_date ? formatDate(s.delivery_date) : '<span class="text-muted">-</span>'}</td>
+      <td>${s.eta ? formatDate(s.eta) : '<span class="text-muted">-</span>'}</td>
       <td><span class="badge ${s.currency === 'USD' ? 'badge-gold' : 'badge-info'}">${s.currency || 'EGP'}${s.currency === 'USD' && s.exchange_rate ? ' (' + s.exchange_rate + ')' : ''}</span></td>
       <td>${statusBadge(s.status)}</td>
       <td style="display:flex;gap:4px;flex-wrap:wrap">
@@ -353,12 +398,20 @@ async function viewShipmentDetail(id) {
       <div><span class="text-muted">الحالة:</span> ${statusBadge(s.status)}</div>
       <div><span class="text-muted">مصدر الشحنة:</span> <strong>${s.origin || '-'}</strong></div>
       <div><span class="text-muted">الوجهة:</span> <strong>${s.destination || '-'}</strong></div>
+      <div><span class="text-muted">الشركة الناقلة:</span> <strong>${s.carrier || '-'}</strong></div>
       <div><span class="text-muted">السائق:</span> <strong>${s.driver || '-'}</strong></div>
       <div><span class="text-muted">المركبة:</span> <strong>${s.vehicle || '-'}</strong></div>
       <div><span class="text-muted">الوزن:</span> <strong>${s.weight_tons ? s.weight_tons + ' طن' : '-'}</strong></div>
       <div><span class="text-muted">العملة:</span> <strong>${s.currency || 'EGP'}${s.currency === 'USD' && s.exchange_rate ? ' (سعر: ' + s.exchange_rate + ' ج.م)' : ''}</strong></div>
-      <div><span class="text-muted">بوليصة الشحن:</span> <strong>${s.bill_of_lading || '-'}</strong></div>
-      <div><span class="text-muted">رقم القافلة:</span> <strong>${s.convoy_number || '-'}</strong></div>
+      <div><span class="text-muted">بوليصة الشحن (B/L):</span> <strong>${s.bill_of_lading || '-'}</strong></div>
+      ${s.ship_type === 'بحري' ? `
+        <div><span class="text-muted">رقم الحاوية:</span> <strong>${s.container_no || '-'}</strong></div>
+        <div><span class="text-muted">ميناء الشحن:</span> <strong>${s.port_of_loading || '-'}</strong></div>
+        <div><span class="text-muted">ميناء الوصول:</span> <strong>${s.port_of_discharge || '-'}</strong></div>
+        <div><span class="text-muted">تاريخ الوصول المتوقع (ETA):</span> <strong>${s.eta ? formatDate(s.eta) : '-'}</strong></div>
+      ` : `
+        <div><span class="text-muted">رقم القافلة:</span> <strong>${s.convoy_number || '-'}</strong></div>
+      `}
       <div><span class="text-muted">المستلم:</span> <strong>${s.receiver || '-'}</strong></div>
       <div></div>
       <div><span class="text-muted">تاريخ الشحن:</span> <strong>${formatDate(s.shipment_date)}</strong></div>
@@ -387,12 +440,12 @@ function openUpdateShipmentStatusModal(id) {
     <div class="form-group">
       <label>الحالة الجديدة *</label>
       <select id="shp-new-status">
-        <option value="pending"       ${s.status==='pending'       ?'selected':''}>قيد التنفيذ</option>
-        <option value="ready_to_ship" ${s.status==='ready_to_ship' ?'selected':''}>مستعد للشحن</option>
-        <option value="in_transit"    ${s.status==='in_transit'    ?'selected':''}>في الطريق</option>
-        <option value="arrived"       ${s.status==='arrived'       ?'selected':''}>وصل المخزن/العميل</option>
-        <option value="delivered"     ${s.status==='delivered'     ?'selected':''}>تم التسليم</option>
-        <option value="cancelled"     ${s.status==='cancelled'     ?'selected':''}>ملغاة</option>
+        <option value="pending"         ${s.status==='pending'         ?'selected':''}>قيد التنفيذ / جاري التحضير</option>
+        <option value="ready_to_ship"   ${s.status==='ready_to_ship'   ?'selected':''}>تم التحميل / مستعد للشحن</option>
+        <option value="in_transit"      ${s.status==='in_transit'      ?'selected':''}>في الطريق</option>
+        <option value="arrived"         ${s.status==='arrived'         ?'selected':''}>وصل الميناء / المخزن</option>
+        <option value="delivered"       ${s.status==='delivered'       ?'selected':''}>تم التسليم</option>
+        <option value="cancelled"       ${s.status==='cancelled'       ?'selected':''}>ملغاة</option>
       </select>
     </div>
     <div class="form-group" id="delivery-date-group" style="display:none">
@@ -415,6 +468,17 @@ async function confirmUpdateShipmentStatus(id) {
   const extraData    = newStatus === 'delivered' && deliveryDate ? { delivery_date: deliveryDate } : undefined;
   try {
     await api.updateShipmentStatus(id, newStatus, extraData);
+
+    // إذا اكتمل التسليم وكان الشحنة مرتبطة بأمر تصدير، حدّث حالة الأمر
+    if (newStatus === 'delivered') {
+      const shipments = window._shipmentData || [];
+      const s = shipments.find(x => x.id === id);
+      if (s && (s.export_order_id || s.order_id)) {
+        const orderId = s.export_order_id || s.order_id;
+        try { await api.updateExportOrderStatus(orderId, 'تم التسليم'); } catch(_) {}
+      }
+    }
+
     closeModal();
     toast('تم تحديث حالة الشحنة بنجاح', 'success');
     renderShipments();
@@ -463,6 +527,7 @@ function renderShipmentProductsTable() {
 function openNewShipmentModal() {
   const sales = (window._salesForShipment || []).filter(s => !INVALID_INVOICE_STATUSES.includes(s.status));
   const warehouses = window._warehouseData || [];
+  const exportOrders = (window._exportOrdersForShipment || []);
   _shipmentProducts = [];
   openModal('شحنة جديدة', `
     <div class="form-grid">
@@ -479,7 +544,7 @@ function openNewShipmentModal() {
       </div>
       <div class="form-group">
         <label>نوع الشحن *</label>
-        <select id="nshp-ship-type">
+        <select id="nshp-ship-type" onchange="toggleMarineFields()">
           <option value="بري">🚛 بري</option>
           <option value="بحري">🚢 بحري</option>
         </select>
@@ -508,8 +573,28 @@ function openNewShipmentModal() {
         <input type="number" id="nshp-weight" placeholder="0.0" min="0" step="0.1">
       </div>
       <div class="form-group">
-        <label>بوليصة الشحن (Bill of Lading)</label>
+        <label>الشركة الناقلة</label>
+        <input type="text" id="nshp-carrier" placeholder="اسم شركة الشحن">
+      </div>
+      <div class="form-group">
+        <label>بوليصة الشحن (B/L)</label>
         <input type="text" id="nshp-bol" placeholder="رقم بوليصة الشحن">
+      </div>
+      <div class="form-group marine-field">
+        <label>رقم الحاوية (Container No.)</label>
+        <input type="text" id="nshp-container" placeholder="مثال: ABCU1234567">
+      </div>
+      <div class="form-group marine-field">
+        <label>ميناء الشحن</label>
+        <input type="text" id="nshp-port-loading" placeholder="مثال: ميناء الإسكندرية">
+      </div>
+      <div class="form-group marine-field">
+        <label>ميناء الوصول</label>
+        <input type="text" id="nshp-port-discharge" placeholder="مثال: ميناء هامبورغ">
+      </div>
+      <div class="form-group marine-field">
+        <label>تاريخ الوصول المتوقع (ETA)</label>
+        <input type="date" id="nshp-eta">
       </div>
       <div class="form-group">
         <label>رقم القافلة</label>
@@ -562,6 +647,13 @@ function openNewShipmentModal() {
     </div>
   `);
   renderShipmentProductsTable();
+  toggleMarineFields();
+}
+
+function toggleMarineFields() {
+  const type   = document.getElementById('nshp-ship-type')?.value;
+  const fields = document.querySelectorAll('.marine-field');
+  fields.forEach(f => { f.style.display = type === 'بحري' ? '' : 'none'; });
 }
 
 function toggleExchangeRate() {
@@ -600,14 +692,19 @@ async function saveNewShipment() {
       invoice_number: invNum,
       customer,
       ship_type:     document.getElementById('nshp-ship-type').value,
+      carrier:       document.getElementById('nshp-carrier').value || null,
       origin:        document.getElementById('nshp-origin').value,
       destination:   dest,
       driver:        document.getElementById('nshp-driver').value,
       vehicle:       document.getElementById('nshp-vehicle').value,
       weight_tons:   parseFloat(document.getElementById('nshp-weight').value) || 0,
-      bill_of_lading: document.getElementById('nshp-bol').value || null,
-      convoy_number:  document.getElementById('nshp-convoy').value || null,
-      receiver:       document.getElementById('nshp-receiver').value || null,
+      bill_of_lading:  document.getElementById('nshp-bol').value || null,
+      container_no:    document.getElementById('nshp-container')?.value || null,
+      port_of_loading: document.getElementById('nshp-port-loading')?.value || null,
+      port_of_discharge: document.getElementById('nshp-port-discharge')?.value || null,
+      eta:             document.getElementById('nshp-eta')?.value || null,
+      convoy_number:   document.getElementById('nshp-convoy').value || null,
+      receiver:        document.getElementById('nshp-receiver').value || null,
       shipment_date:  date,
       currency,
       exchange_rate:  exchangeRate,
