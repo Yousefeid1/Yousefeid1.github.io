@@ -1372,9 +1372,6 @@ async function saveQualityRecord(id) {
       if (api.updateSlabGrade) api.updateSlabGrade(record.slabId, grade);
       if (grade === 'D' && api.moveSlabToRejected) {
         api.moveSlabToRejected(record.slabId);
-        // تحديث حالة اللوح إلى مرفوض
-        record.status = 'rejected';
-        _saveQualityRecordDirect(record);
       }
     }
     toast('تم تحديث درجة الجودة وتعديل قيمة المخزون تلقائياً', 'success');
@@ -1386,7 +1383,6 @@ async function saveQualityRecord(id) {
   }
 
   closeModal();
-  toast(id ? 'تم تحديث سجل الجودة بنجاح' : 'تمت إضافة سجل الجودة بنجاح', 'success');
   renderQuality();
 }
 

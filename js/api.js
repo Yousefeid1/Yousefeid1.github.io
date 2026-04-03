@@ -1211,21 +1211,21 @@ const api = {
   updateSlabGrade(slabId, newGrade) {
     const records = DB.getAll('quality_records');
     const rec = records.find(r => r.slabId === slabId || r.slabCode === slabId);
-    if (rec) { rec.qualityGrade = newGrade; DB.save('quality_records', rec); }
+    if (rec) { rec.qualityGrade = newGrade; DB.set('quality_records', records); }
   },
 
   /** نقل لوح مرفوض إلى المعزل */
   moveSlabToRejected(slabId) {
     const records = DB.getAll('quality_records');
     const rec = records.find(r => r.slabId === slabId || r.slabCode === slabId);
-    if (rec) { rec.status = 'rejected'; DB.save('quality_records', rec); }
+    if (rec) { rec.status = 'rejected'; DB.set('quality_records', records); }
   },
 
   /** تحديث حالة لوح */
   updateSlabStatus(slabId, status) {
     const records = DB.getAll('quality_records');
     const rec = records.find(r => r.slabId === slabId || r.slabCode === slabId || String(r.id) === String(slabId));
-    if (rec) { rec.status = status; DB.save('quality_records', rec); }
+    if (rec) { rec.status = status; DB.set('quality_records', records); }
   },
 
   /** حجز ألواح المخزن لأمر تصدير */
