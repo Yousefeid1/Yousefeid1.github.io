@@ -83,9 +83,52 @@ function calcActualCostPerMeter(stageFilter, period) {
   return totalOutput > 0 ? totalCost / totalOutput : 0;
 }
 
+// ===== 4. حساب التكلفة الفعلية للمتر لكل لوح =====
+/**
+ * calculateActualSlabCost(slab_id)
+ * المعادلة: (تكلفة الكتلة ÷ إجمالي مساحة الألواح)
+ *         + (تكاليف التصنيع ÷ إجمالي المساحة)
+ *         + التكاليف غير المباشرة الموزعة
+ */
+function calculateActualSlabCost(slab_id) {
+  const slab = DB.getAll('slabs').find(s => String(s.id) === String(slab_id));
+  if (!slab) return 0;
+
+  // 1. إيجاد الكتلة المرتبطة
+  const block = DB.getAll('blocks').find(b => String(b.id) === String(slab.block_id));
+  if (!block) return 0;
+
+  // 2. إجمالي مساحة ألواح هذه الكتلة
+  const siblingSlabs = DB.getAll('slabs').filter(s => String(s.block_id) === String(block.id));
+  const totalArea    = siblingSlabs.reduce((sum, s) => sum + (parseFloat(s.area_m2) || 0), 0);
+  if (totalArea === 0) return 0;
+
+  // 3. حصة الكتلة لكل متر مربع
+  const blockCostPerM2 = (parseFloat(block.cost) || 0) / totalArea;
+
+  // 4. تكاليف التصنيع المرتبطة بهذه الكتلة
+  const mfgStages = DB.getAll('manufacturing_stages')
+    .filter(s => String(s.blockId) === String(block.id) || String(s.block_id) === String(block.id));
+  const totalMfgCost = mfgStages.reduce((sum, s) =>
+    sum + (s.directCost || 0) + (s.laborCost || 0) +
+          (s.materialCost || 0) + (s.transportCost || 0), 0);
+
+  const mfgCostPerM2 = totalMfgCost / totalArea;
+
+  // 5. التكاليف غير المباشرة الموزعة (نفس فترة أحدث مرحلة)
+  const latestStage = mfgStages.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+  const period      = latestStage ? (latestStage.date || '').slice(0, 7) : '';
+  const overheadPerM2 = period ? getAllocatedOverhead('', period) / Math.max(totalArea, 1) : 0;
+
+  // إجمالي التكلفة لكل م²
+  const totalPerM2 = blockCostPerM2 + mfgCostPerM2 + overheadPerM2;
+
+  // تكلفة هذا اللوح تحديداً
+  return totalPerM2 * (parseFloat(slab.area_m2) || 0);
+}
+
 // تقرير مقارنة الفعلي بالمتوقع لفترة معينة
-function costVarianceReport(period) {
-  const allStages   = DB.getAll('manufacturing_stages');
+function costVarianceReport(period) {  const allStages   = DB.getAll('manufacturing_stages');
   const uniqueNames = [...new Set(allStages.map(s => s.stage))];
 
   return uniqueNames.map(stageName => {

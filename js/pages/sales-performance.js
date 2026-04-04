@@ -407,6 +407,142 @@ async function payCommission(id) {
   }
 }
 
+// ===== 6. تقرير عمولات المبيعات المبني على المتحصلات =====
+/**
+ * يُحسب العمولة بناءً على المبالغ المحصّلة فعلياً (payments)
+ * لا بناءً على قيمة الفاتورة
+ * commission = collected_amount * employee_rate
+ * الأدوار المصرح لها: مدير، مدير مبيعات، مدير قسم
+ */
+async function renderCommissionReport() {
+  const content = document.getElementById('page-content');
+  content.innerHTML = '<div class="loader"></div>';
+
+  try {
+    // التحقق من الصلاحية
+    const role = currentUser?.role || '';
+    const allowedRoles = ['مدير عام', 'مدير', 'مدير مبيعات', 'مدير قسم', 'محاسب'];
+    if (!allowedRoles.includes(role)) {
+      content.innerHTML = `<div class="card"><p style="color:var(--danger)">ليس لديك صلاحية عرض هذا التقرير</p></div>`;
+      return;
+    }
+
+    const users    = await api.users();
+    const sales    = DB.getAll('sales');
+    const payments = DB.getAll('payments').filter(p => p.type === 'receipt' && p.party_type === 'customer');
+
+    // بناء خريطة بيانات موظفي المبيعات
+    const salespeople = users.filter(u => SALES_ASSIGNABLE_ROLES.includes(u.role));
+
+    // حساب العمولات بناءً على المتحصلات
+    const commData = salespeople.map(sp => {
+      // الفواتير المرتبطة بهذا السيلز
+      const spInvoices = sales.filter(s => String(s.salesperson_id) === String(sp.id));
+
+      // المتحصلات من المدفوعات المباشرة
+      let totalCollected = 0;
+      spInvoices.forEach(inv => {
+        const invPayments = payments.filter(p =>
+          String(p.party_id) === String(inv.customer_id) &&
+          (p.notes || '').includes(inv.invoice_number)
+        );
+        totalCollected += invPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+        // أيضاً المبلغ المدفوع من الفاتورة ذاتها
+        if (!invPayments.length) {
+          totalCollected += inv.paid_amount || 0;
+        }
+      });
+
+      // نسبة العمولة من بيانات المستخدم
+      const rate = parseFloat(sp.commission_rate || 0);
+      const commissionAmount = totalCollected * (rate / 100);
+
+      return {
+        id:             sp.id,
+        name:           sp.name,
+        role:           sp.role,
+        invoiceCount:   spInvoices.length,
+        totalSales:     spInvoices.reduce((s, i) => s + (i.total_amount || 0), 0),
+        totalCollected,
+        rate,
+        commissionAmount,
+      };
+    }).filter(sp => sp.invoiceCount > 0 || sp.totalCollected > 0);
+
+    const grandTotal = commData.reduce((s, c) => s + c.commissionAmount, 0);
+
+    const rows = commData.map((sp, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${sp.name}</strong></td>
+        <td><span class="badge badge-info">${sp.role}</span></td>
+        <td class="number">${sp.invoiceCount}</td>
+        <td class="number">${formatMoney(sp.totalSales)}</td>
+        <td class="number text-success"><strong>${formatMoney(sp.totalCollected)}</strong></td>
+        <td class="number">${sp.rate}%</td>
+        <td class="number text-warning"><strong>${formatMoney(sp.commissionAmount)}</strong></td>
+      </tr>
+    `).join('') || `<tr><td colspan="8" class="text-center text-muted">لا توجد بيانات</td></tr>`;
+
+    content.innerHTML = `
+      <div class="page-header">
+        <div>
+          <h2>📊 تقرير عمولات المبيعات</h2>
+          <p>مبنية على المتحصلات الفعلية — ${new Date().toLocaleDateString('ar-EG',{month:'long',year:'numeric'})}</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary" onclick="exportCommissionReportExcel()">📊 Excel</button>
+          <button class="btn btn-secondary" onclick="showPage('commissions')">← عرض العمولات التفصيلية</button>
+        </div>
+      </div>
+
+      <div class="report-summary">
+        <div class="summary-box gold">
+          <div class="label">إجمالي العمولات المستحقة</div>
+          <div class="value">${formatMoney(grandTotal)}</div>
+        </div>
+        <div class="summary-box">
+          <div class="label">عدد موظفي المبيعات</div>
+          <div class="value">${commData.length}</div>
+        </div>
+        <div class="summary-box profit">
+          <div class="label">إجمالي المتحصلات</div>
+          <div class="value">${formatMoney(commData.reduce((s,c)=>s+c.totalCollected,0))}</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:0">
+        <div class="data-table-wrapper">
+          <table id="commission-report-table">
+            <thead><tr>
+              <th>#</th><th>الموظف</th><th>الدور</th>
+              <th>الفواتير</th><th>إجمالي المبيعات</th>
+              <th>المتحصلات الفعلية</th><th>نسبة العمولة</th><th>العمولة المستحقة</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    window._commReportData = commData;
+  } catch (e) {
+    content.innerHTML = `<div class="card"><p style="color:var(--danger)">${e.message}</p></div>`;
+  }
+}
+
+function exportCommissionReportExcel() {
+  const data = window._commReportData || [];
+  if (!data.length) { toast('لا توجد بيانات للتصدير', 'error'); return; }
+  const headers = ['الموظف', 'الدور', 'الفواتير', 'إجمالي المبيعات', 'المتحصلات', 'نسبة العمولة%', 'العمولة المستحقة'];
+  const rows = data.map(sp => [sp.name, sp.role, sp.invoiceCount, sp.totalSales, sp.totalCollected, sp.rate, sp.commissionAmount]);
+  if (typeof exportGenericExcel === 'function') {
+    exportGenericExcel({ sheetName: 'تقرير العمولات', headers, rows, filename: `commission-report-${new Date().toISOString().split('T')[0]}.xlsx` });
+  } else {
+    toast('تصدير Excel غير متوفر', 'warning');
+  }
+}
+
 // ===== EXPORT: SALES PERFORMANCE =====
 function exportSalesPerformancePDF() {
   const data = window._spLastData;

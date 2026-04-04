@@ -2,9 +2,32 @@
 // لوحة التحكم الرئيسية - Dashboard
 // ============================================
 
+// ===== 9. أقسام لوحة التحكم حسب الدور =====
+/**
+ * getDashboardSections(role)
+ * يعيد مصفوفة بأسماء الأقسام المرئية للدور المحدد
+ * قيم ممكنة: 'kpis', 'financial', 'production', 'sales', 'manufacturing', 'logistics', 'alerts'
+ */
+function getDashboardSections(role) {
+  const sections = {
+    'مدير عام':      ['kpis', 'financial', 'production', 'sales', 'manufacturing', 'logistics', 'alerts'],
+    'مدير':          ['kpis', 'financial', 'production', 'sales', 'manufacturing', 'logistics', 'alerts'],
+    'محاسب':         ['financial', 'alerts'],
+    'موظف مبيعات':  ['sales', 'alerts'],
+    'مدير مبيعات':  ['kpis', 'financial', 'sales', 'alerts'],
+    'موظف مشتريات': ['kpis', 'production', 'alerts'],
+    'موظف تصنيع':   ['production', 'manufacturing', 'alerts'],
+    'مدير تصنيع':   ['kpis', 'production', 'manufacturing', 'alerts'],
+    'مشرف تصنيع':   ['production', 'manufacturing', 'alerts'],
+    'موظف لوجستيك': ['logistics', 'alerts'],
+    'مدير قسم':      ['kpis', 'sales', 'alerts'],
+    'موظف عادي':     ['alerts'],
+  };
+  return sections[role] || ['kpis', 'alerts'];
+}
+
 // ===== جمع جميع التنبيهات الذكية =====
-function collectAllAlerts() {
-  var alerts  = [];
+function collectAllAlerts() {  var alerts  = [];
   var today   = new Date();
   var in7Days = new Date(today.getTime() + 7 * 86400000);
   var s = DB.get('settings') || {};

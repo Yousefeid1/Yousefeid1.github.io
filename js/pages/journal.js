@@ -24,6 +24,118 @@ function createAutoJournal(data) {
   return newEntry;
 }
 
+// ===== 2. قيود محاسبية تلقائية موسعة =====
+/**
+ * createAutoJournalEntry(type, data)
+ * أنواع القيود المدعومة:
+ *   purchase_block   — شراء كتلة خام
+ *   cutting          — نشر كتلة إلى ألواح
+ *   manufacturing    — مرحلة تصنيع
+ *   sale_revenue     — إيراد مبيعات
+ *   sale_cogs        — تكلفة البضاعة المباعة
+ *   customer_payment — تحصيل من عميل
+ *   supplier_payment — دفع لمورد
+ */
+function createAutoJournalEntry(type, data) {
+  const date = data.date || new Date().toISOString().split('T')[0];
+  const entries = DB.getAll('journal_entries') || [];
+
+  // خريطة أرقام الحسابات الافتراضية
+  const ACCOUNTS = {
+    inventory:       { code:'1140', name:'المخزون' },
+    raw_blocks:      { code:'1141', name:'مخزون كتل خام' },
+    wip_slabs:       { code:'1142', name:'مخزون ألواح تحت التصنيع' },
+    finished_slabs:  { code:'1143', name:'مخزون ألواح جاهزة' },
+    bank:            { code:'1120', name:'البنك' },
+    cash:            { code:'1110', name:'النقدية' },
+    receivables:     { code:'1130', name:'الذمم المدينة' },
+    payables:        { code:'2110', name:'الذمم الدائنة' },
+    sales_revenue:   { code:'4100', name:'إيرادات المبيعات' },
+    cogs:            { code:'5100', name:'تكلفة البضاعة المباعة' },
+    mfg_costs:       { code:'5260', name:'تكاليف تصنيع' },
+  };
+
+  let lines = [];
+  let description = '';
+
+  if (type === 'purchase_block') {
+    // شراء كتلة خام: مخزون كتل (مدين) / بنك أو ذمم دائنة (دائن)
+    const credit = data.paid ? ACCOUNTS.bank : ACCOUNTS.payables;
+    description = `شراء كتلة خام — ${data.ref || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.raw_blocks.code,  account_name: ACCOUNTS.raw_blocks.name,  debit: data.amount, credit: 0 },
+      { account_code: credit.code,                account_name: credit.name,                debit: 0,           credit: data.amount },
+    ];
+
+  } else if (type === 'cutting') {
+    // نشر بلوك: تحويل من كتل خام إلى ألواح تحت التصنيع
+    description = `نشر كتلة — دُفعة ${data.ref || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.wip_slabs.code,   account_name: ACCOUNTS.wip_slabs.name,   debit: data.amount, credit: 0 },
+      { account_code: ACCOUNTS.raw_blocks.code,   account_name: ACCOUNTS.raw_blocks.name,   debit: 0,           credit: data.amount },
+    ];
+
+  } else if (type === 'manufacturing') {
+    // مرحلة تصنيع: تكاليف تصنيع (مدين) / بنك أو نقدية (دائن)
+    description = `تكاليف تصنيع — ${data.stage || data.ref || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.mfg_costs.code,   account_name: ACCOUNTS.mfg_costs.name,   debit: data.amount, credit: 0 },
+      { account_code: ACCOUNTS.bank.code,         account_name: ACCOUNTS.bank.name,         debit: 0,           credit: data.amount },
+    ];
+
+  } else if (type === 'sale_revenue') {
+    // إيراد مبيعات: ذمم مدينة (مدين) / إيرادات (دائن)
+    description = `إيراد مبيعات — ${data.ref || data.invoice_number || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.receivables.code,  account_name: ACCOUNTS.receivables.name,  debit: data.amount, credit: 0 },
+      { account_code: ACCOUNTS.sales_revenue.code, account_name: ACCOUNTS.sales_revenue.name, debit: 0,          credit: data.amount },
+    ];
+
+  } else if (type === 'sale_cogs') {
+    // تكلفة البضاعة المباعة: COGS (مدين) / مخزون (دائن)
+    description = `تكلفة مبيعات — ${data.ref || data.invoice_number || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.cogs.code,          account_name: ACCOUNTS.cogs.name,          debit: data.amount, credit: 0 },
+      { account_code: ACCOUNTS.finished_slabs.code, account_name: ACCOUNTS.finished_slabs.name, debit: 0,          credit: data.amount },
+    ];
+
+  } else if (type === 'customer_payment') {
+    // تحصيل دفعة من عميل: بنك/نقدية (مدين) / ذمم مدينة (دائن)
+    const debitAcc = data.method === 'cash' ? ACCOUNTS.cash : ACCOUNTS.bank;
+    description = `تحصيل من عميل — ${data.customer || data.ref || ''}`;
+    lines = [
+      { account_code: debitAcc.code,              account_name: debitAcc.name,              debit: data.amount, credit: 0 },
+      { account_code: ACCOUNTS.receivables.code,  account_name: ACCOUNTS.receivables.name,  debit: 0,           credit: data.amount },
+    ];
+
+  } else if (type === 'supplier_payment') {
+    // دفع لمورد: ذمم دائنة (مدين) / بنك/نقدية (دائن)
+    const creditAcc = data.method === 'cash' ? ACCOUNTS.cash : ACCOUNTS.bank;
+    description = `دفع لمورد — ${data.supplier || data.ref || ''}`;
+    lines = [
+      { account_code: ACCOUNTS.payables.code,     account_name: ACCOUNTS.payables.name,     debit: data.amount, credit: 0 },
+      { account_code: creditAcc.code,             account_name: creditAcc.name,             debit: 0,           credit: data.amount },
+    ];
+  }
+
+  if (!lines.length) return null;
+
+  const newEntry = {
+    id:          Date.now() + Math.floor(Math.random() * 1000),
+    date,
+    description: data.description || description,
+    type:        'تلقائي',
+    is_auto:     true,
+    ref:         data.ref || data.invoice_number || '',
+    lines,
+    created_at:  new Date().toISOString(),
+  };
+
+  entries.push(newEntry);
+  DB.set('journal_entries', entries);
+  return newEntry;
+}
+
 // ===== JOURNAL ENTRIES =====
 async function renderJournal() {
   const content = document.getElementById('page-content');

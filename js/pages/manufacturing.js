@@ -103,7 +103,7 @@ function renderManufacturing() {
         <div class="label">إجمالي المراحل</div>
         <div class="value">${totalStages}</div>
       </div>
-      <div class="summary-box profit">
+      <div class="summary-box profit cost-sensitive-field">
         <div class="label">إجمالي التكاليف</div>
         <div class="value">${formatMoney(totalCost)}</div>
       </div>
@@ -147,7 +147,7 @@ function renderManufacturing() {
               <th>الكمية الخارجة</th>
               <th>الفاقد</th>
               <th>الجودة</th>
-              <th>إجمالي التكلفة</th>
+              <th class="cost-sensitive-field">إجمالي التكلفة</th>
               <th>التاريخ</th>
               <th>إجراءات</th>
             </tr>
@@ -201,8 +201,7 @@ function renderManufacturingRows(stages) {
             ${s.qualityGrade || '—'}
           </span>
         </td>
-        <td class="number">${formatMoney(totalCost)}</td>
-        <td>${formatDate(s.date)}</td>
+        <td class="number cost-sensitive-field">${formatMoney(totalCost)}</td>
         <td>
           <div style="display:flex;gap:4px">
             <button class="btn btn-secondary btn-sm" onclick="viewManufacturingStage(${s.id})">تفاصيل</button>
