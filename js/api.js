@@ -390,6 +390,74 @@ const DB = {
 DB.init();
 DB._initChannel();
 
+// ===== 10. فحص أمان الحذف =====
+/**
+ * checkDeletionSafety(table, id)
+ * يعيد { canDelete: bool, reason: string }
+ * يمنع الحذف إذا كانت هناك بيانات مرتبطة
+ */
+function checkDeletionSafety(table, id) {
+  const sid = String(id);
+
+  if (table === 'blocks') {
+    // كتلة: تحقق من وجود ألواح مرتبطة
+    const relatedSlabs = DB.getAll('slabs').filter(s => String(s.block_id) === sid);
+    if (relatedSlabs.length > 0) {
+      return { canDelete: false, reason: `لا يمكن الحذف — هذه الكتلة مرتبطة بـ ${relatedSlabs.length} لوح` };
+    }
+  }
+
+  if (table === 'slabs') {
+    // لوح: تحقق من وجود مبيعات مرتبطة
+    const slab = DB.getAll('slabs').find(s => String(s.id) === sid);
+    if (slab && slab.status === 'sold') {
+      return { canDelete: false, reason: 'لا يمكن الحذف — هذا اللوح مرتبط بفاتورة مبيعات' };
+    }
+  }
+
+  if (table === 'customers') {
+    // عميل: تحقق من وجود فواتير غير مسددة
+    const unpaid = DB.getAll('sales').filter(s =>
+      String(s.customer_id) === sid &&
+      s.status !== 'paid' && s.status !== 'cancelled'
+    );
+    if (unpaid.length > 0) {
+      return { canDelete: false, reason: `لا يمكن الحذف — يوجد ${unpaid.length} فاتورة غير مسددة لهذا العميل` };
+    }
+  }
+
+  if (table === 'suppliers') {
+    // مورد: تحقق من وجود فواتير مشتريات غير مسددة
+    const unpaid = DB.getAll('purchases').filter(p =>
+      String(p.supplier_id) === sid &&
+      p.status !== 'paid' && p.status !== 'cancelled'
+    );
+    if (unpaid.length > 0) {
+      return { canDelete: false, reason: `لا يمكن الحذف — يوجد ${unpaid.length} فاتورة مشتريات غير مسددة لهذا المورد` };
+    }
+  }
+
+  if (table === 'products') {
+    // منتج: تحقق من وجود حركات مخزون أو مبيعات
+    const usedInSales = DB.getAll('sales').some(s =>
+      Array.isArray(s.items) && s.items.some(i => String(i.product_id) === sid)
+    );
+    if (usedInSales) {
+      return { canDelete: false, reason: 'لا يمكن الحذف — هذا المنتج مرتبط بفواتير مبيعات' };
+    }
+  }
+
+  if (table === 'journal' || table === 'journal_entries') {
+    // قيد محاسبي مقفل: تحقق من حالة القيد
+    const entry = DB.getAll(table).find(e => String(e.id) === sid);
+    if (entry && entry.locked) {
+      return { canDelete: false, reason: 'لا يمكن الحذف — هذا القيد مقفل' };
+    }
+  }
+
+  return { canDelete: true, reason: '' };
+}
+
 // ===== فحص سلامة البيانات =====
 function checkDataIntegrity() {
   const keys = [

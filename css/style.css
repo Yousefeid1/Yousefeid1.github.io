@@ -1151,3 +1151,137 @@ tbody td { padding: 11px 16px; color: var(--text-primary); vertical-align: middl
   .report-summary { grid-template-columns: 1fr; }
   .kpi-grid { grid-template-columns: 1fr !important; }
 }
+
+/* ============================================
+   إضافات النظام — الميزات 1-12
+   ============================================ */
+
+/* ===== 1. إخفاء حقول التكلفة (Role-Based Cost Visibility) =====
+   استخدام class على body لإخفاء جميع حقول التكلفة الحساسة
+   body.no-cost-view → يخفي عناصر .cost-sensitive-field */
+body.no-cost-view .cost-sensitive-field {
+  display: none !important;
+}
+
+/* ===== 12. شريط البحث العالمي ===== */
+.global-search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+}
+.global-search-wrap input {
+  width: 100%;
+  padding: 7px 12px 7px 32px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-family: 'Cairo', sans-serif;
+  font-size: 13px;
+  direction: rtl;
+}
+.global-search-wrap input:focus { outline: none; border-color: var(--primary); }
+.global-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+.global-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  z-index: 9000;
+  max-height: 420px;
+  overflow-y: auto;
+  direction: rtl;
+}
+.search-category {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.5px;
+}
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background .15s;
+  font-size: 13px;
+}
+.search-result-item:hover { background: var(--bg-input); }
+.search-result-item .sri-icon { font-size: 16px; }
+.search-result-item .sri-title { font-weight: 600; color: var(--text-primary); }
+.search-result-item .sri-sub { font-size: 11px; color: var(--text-muted); margin-top:1px; }
+.search-highlight { background: rgba(212,175,55,.3); border-radius: 2px; padding: 0 2px; }
+.search-no-results {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ===== 3. صفحة متتبع اللوح ===== */
+.slab-timeline {
+  position: relative;
+  padding-right: 24px;
+}
+.slab-timeline::before {
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  right: -20px;
+  top: 18px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg-primary);
+}
+.timeline-item.done::before { background: var(--success); }
+.timeline-item.pending::before { background: var(--text-muted); }
+.timeline-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.timeline-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.timeline-details {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

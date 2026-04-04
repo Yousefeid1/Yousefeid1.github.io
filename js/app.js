@@ -192,14 +192,14 @@ const ROLE_PAGES = {
   'مدير عام':        null, // null = all pages visible
   'مدير':            null,
   'محاسب':           ['dashboard', 'journal', 'accounts', 'trial-balance', 'payments', 'expenses', 'report-pl', 'report-bs', 'report-waste', 'report-inventory', 'cost-centers', 'checks', 'year-closing', 'recurring-entries', 'settings', 'notifications'],
-  'موظف مبيعات':    ['dashboard', 'export', 'customers', 'crm', 'quotations', 'sales', 'notifications'],
-  'مدير مبيعات':    ['dashboard', 'export', 'customers', 'crm', 'quotations', 'sales', 'payments', 'report-pl', 'report-customer-credit', 'notifications'],
-  'موظف مشتريات':  ['dashboard', 'purchases', 'suppliers', 'blocks', 'slabs', 'payments', 'notifications'],
-  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'notifications'],
-  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'cost-centers', 'report-inventory', 'notifications'],
-  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'notifications'],
-  'موظف لوجستيك':  ['dashboard', 'export', 'warehouses', 'shipments', 'shipment-report', 'notifications'],
-  'مدير قسم':       ['dashboard', 'employees', 'activity-log', 'sales', 'customers', 'crm', 'export', 'report-pl', 'sales-performance', 'commissions', 'notifications'],
+  'موظف مبيعات':    ['dashboard', 'export', 'customers', 'crm', 'quotations', 'sales', 'notifications', 'slab-tracker'],
+  'مدير مبيعات':    ['dashboard', 'export', 'customers', 'crm', 'quotations', 'sales', 'payments', 'report-pl', 'report-customer-credit', 'notifications', 'slab-tracker'],
+  'موظف مشتريات':  ['dashboard', 'purchases', 'suppliers', 'blocks', 'slabs', 'payments', 'notifications', 'slab-tracker'],
+  'موظف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'notifications', 'slab-tracker'],
+  'مدير تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'cost-centers', 'report-inventory', 'notifications', 'slab-tracker'],
+  'مشرف تصنيع':    ['dashboard', 'blocks', 'cutting', 'slabs', 'quality', 'manufacturing', 'notifications', 'slab-tracker'],
+  'موظف لوجستيك':  ['dashboard', 'export', 'warehouses', 'shipments', 'shipment-report', 'notifications', 'slab-tracker'],
+  'مدير قسم':       ['dashboard', 'employees', 'activity-log', 'sales', 'customers', 'crm', 'export', 'report-pl', 'sales-performance', 'commissions', 'notifications', 'slab-tracker'],
   'موظف عادي':      ['dashboard', 'notifications'],
 };
 
@@ -259,6 +259,9 @@ async function initApp() {
   // Apply role-based sidebar
   filterSidebarByRole();
 
+  // تطبيق صلاحية عرض التكاليف بناءً على الدور
+  applyCostVisibility();
+
   // Check for delayed shipments and create notifications
   checkDelayedShipments();
 
@@ -271,6 +274,10 @@ async function initApp() {
 
   // فحص القيود المتكررة بعد تسجيل الدخول الناجح
   if (typeof checkRecurringEntries === 'function') checkRecurringEntries();
+
+  // فحص التنبيهات الذكية عند تسجيل الدخول وكل 30 دقيقة
+  setTimeout(checkAllAlerts, 2000);
+  setInterval(checkAllAlerts, 30 * 60 * 1000);
 
   // Show dashboard
   showPage('dashboard');
@@ -319,16 +326,24 @@ function autoBackupCheck() {
     const snap = {};
     ['customers','sales','purchases','payments','blocks','slabs']
       .forEach(k => {
-        const v = localStorage.getItem(k);
+        const v = localStorage.getItem('marble_db_' + k) || localStorage.getItem(k);
         if (v) snap[k] = v;
       });
     localStorage.setItem('_autoSnapshot', JSON.stringify({
       date: new Date().toISOString(), data: snap
     }));
-    toast(
-      'لم يتم عمل نسخة احتياطية منذ أكثر من يوم ⚠️',
-      'warning'
-    );
+    // تحذير بالغ إذا مرّ أكثر من 7 أيام دون نسخة احتياطية
+    if (daysSinceLast > 7) {
+      toast(
+        `⚠️ لم يتم عمل نسخة احتياطية منذ ${daysSinceLast === Infinity ? 'البداية' : daysSinceLast + ' يوم'} — يُنصح بالنسخ الآن!`,
+        'warning'
+      );
+    } else {
+      toast(
+        'لم يتم عمل نسخة احتياطية منذ أكثر من يوم ⚠️',
+        'warning'
+      );
+    }
   }
 }
 
@@ -414,6 +429,8 @@ const pageTitles = {
   'report-project-profit': 'تقرير ربحية المشاريع',
   'sales-performance': 'أداء المبيعات والسيلز',
   'commissions':       'إدارة العمولات',
+  'commission-report': 'تقرير عمولات المبيعات',
+  'slab-tracker':      'تتبع مسار اللوح',
 };
 
 // Track current page for real-time refresh
@@ -490,6 +507,8 @@ function showPage(pageName) {
     'report-project-profit': renderReportProjectProfit,
     'sales-performance': renderSalesPerformance,
     'commissions':       renderCommissions,
+    'commission-report': renderCommissionReport,
+    'slab-tracker':      renderSlabTracker,
   };
 
   if (renders[pageName]) {
@@ -540,6 +559,7 @@ function _scheduleRefresh() {
         'year-closing': renderYearClosing,
         'recurring-entries': renderRecurringEntries,
         'machines': () => {},
+        'slab-tracker': renderSlabTracker,
       };
       if (renders[_currentPage]) renders[_currentPage]();
       loadNotifications();
@@ -877,6 +897,249 @@ function tableSkeletonHTML(rows = 5, cols = 4) {
 function isManager() {
   const role = currentUser?.role || '';
   return ['مدير عام', 'مدير', 'مدير مبيعات', 'مدير قسم'].includes(role);
+}
+
+// ===== 1. صلاحية عرض التكاليف =====
+// يعيد true فقط لأدوار: مدير عام، مدير، محاسب
+function canViewCost() {
+  const role = currentUser?.role || '';
+  return ['مدير عام', 'مدير', 'محاسب'].includes(role);
+}
+
+// تطبيق صلاحية التكلفة عبر class على body
+// body.no-cost-view .cost-sensitive-field { display:none }
+function applyCostVisibility() {
+  document.body.classList.toggle('no-cost-view', !canViewCost());
+}
+
+// ===== 12. البحث العالمي في شريط التنقل =====
+function globalSearch(term) {
+  const wrap = document.getElementById('globalSearchResults');
+  if (!wrap) return;
+
+  // إخفاء النتائج إذا كان البحث فارغاً
+  if (!term || term.trim().length < 2) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+
+  const q = term.trim().toLowerCase();
+  const results = [];
+
+  // بحث في العملاء
+  DB.getAll('customers').forEach(c => {
+    if ((c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q)) {
+      results.push({ cat: 'العملاء', icon: '👤', title: c.name, sub: c.phone || '', page: 'customers', id: c.id });
+    }
+  });
+
+  // بحث في الفواتير
+  DB.getAll('sales').forEach(s => {
+    if ((s.invoice_number || '').toLowerCase().includes(q) || (s.customer || '').toLowerCase().includes(q)) {
+      results.push({ cat: 'الفواتير', icon: '🧾', title: s.invoice_number, sub: s.customer + ' — ' + formatMoney(s.total_amount), page: 'sales', id: s.id });
+    }
+  });
+
+  // بحث في الكتل الخام
+  DB.getAll('blocks').forEach(b => {
+    if ((b.code || '').toLowerCase().includes(q) || (b.type || '').toLowerCase().includes(q)) {
+      results.push({ cat: 'الكتل الخام', icon: '🪨', title: b.code, sub: b.type + ' — ' + b.origin, page: 'blocks', id: b.id });
+    }
+  });
+
+  // بحث في الألواح
+  DB.getAll('slabs').forEach(s => {
+    if ((s.code || '').toLowerCase().includes(q) || (s.type || '').toLowerCase().includes(q)) {
+      results.push({ cat: 'الألواح', icon: '🔳', title: s.code, sub: s.type + ' — ' + (s.grade || ''), page: 'slabs', id: s.id });
+    }
+  });
+
+  // بحث في الموظفين (إذا كان لديه صلاحية)
+  if (['مدير عام', 'مدير', 'مدير قسم'].includes(currentUser?.role || '')) {
+    DB.getAll('users').forEach(u => {
+      if ((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) {
+        results.push({ cat: 'الموظفون', icon: '👥', title: u.name, sub: u.role + ' — ' + (u.email || ''), page: 'employees', id: u.id });
+      }
+    });
+  }
+
+  if (!results.length) {
+    wrap.innerHTML = `<div class="search-no-results">لا توجد نتائج لـ "${term}"</div>`;
+    return;
+  }
+
+  // تجميع النتائج حسب الفئة
+  const groups = {};
+  results.slice(0, 30).forEach(r => {
+    if (!groups[r.cat]) groups[r.cat] = [];
+    groups[r.cat].push(r);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(groups)) {
+    html += `<div class="search-category">${cat}</div>`;
+    items.forEach(item => {
+      // تمييز النص المطابق بشكل آمن
+      const safeTitle = sanitize ? sanitize(item.title) : item.title;
+      const safeSub   = sanitize ? sanitize(item.sub)   : item.sub;
+      const hlTitle = safeTitle.replace(
+        new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
+        '<span class="search-highlight">$1</span>'
+      );
+      // حفظ البيانات في data attributes لتجنب حقن الكود
+      html += `<div class="search-result-item"
+        data-page="${encodeURIComponent(item.page)}"
+        data-id="${encodeURIComponent(String(item.id))}"
+        style="cursor:pointer">
+        <span class="sri-icon">${item.icon}</span>
+        <div>
+          <div class="sri-title">${hlTitle}</div>
+          <div class="sri-sub">${safeSub}</div>
+        </div>
+      </div>`;
+    });
+  }
+  wrap.innerHTML = html;
+
+  // تسجيل أحداث النقر بعد رسم النتائج (event delegation آمن)
+  wrap.querySelectorAll('.search-result-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const page = decodeURIComponent(el.dataset.page || '');
+      const id   = decodeURIComponent(el.dataset.id || '');
+      closeGlobalSearch();
+      if (page) navigateToEntity(page, id);
+    });
+  });
+}
+
+function closeGlobalSearch() {
+  const wrap = document.getElementById('globalSearchResults');
+  if (wrap) wrap.style.display = 'none';
+  const inp = document.getElementById('globalSearchInput');
+  if (inp) inp.value = '';
+}
+
+// ===== 5. التنبيهات الذكية =====
+// يعمل عند تسجيل الدخول وكل 30 دقيقة
+function checkAllAlerts() {
+  const today  = new Date();
+  const role   = currentUser?.role || '';
+  const in7Days = new Date(today.getTime() + 7 * 86400000);
+  const newNotifs = [];
+
+  // 1. كتل لم يتم نشرها أكثر من 90 يوم
+  if (['مدير عام', 'مدير', 'مدير تصنيع', 'موظف تصنيع', 'مشرف تصنيع'].includes(role)) {
+    DB.getAll('blocks').forEach(b => {
+      if (b.status === 'in_stock' && b.received_date) {
+        const days = daysBetween(b.received_date);
+        if (days > 90) {
+          newNotifs.push({
+            title: 'كتلة خام بدون نشر',
+            message: `الكتلة ${b.code} (${b.type}) — في المخزن منذ ${days} يوم دون نشر`,
+            type: 'warning',
+          });
+        }
+      }
+    });
+  }
+
+  // 2. ألواح لم تُباع أكثر من 180 يوم
+  if (['مدير عام', 'مدير', 'موظف مبيعات', 'مدير مبيعات', 'مدير قسم'].includes(role)) {
+    const cutting = DB.getAll('cutting');
+    DB.getAll('slabs').forEach(s => {
+      if (s.status === 'in_stock') {
+        const batch = cutting.find(c => String(c.id) === String(s.cutting_id));
+        const refDate = batch?.date;
+        if (refDate && daysBetween(refDate) > 180) {
+          newNotifs.push({
+            title: 'لوح غير مباع',
+            message: `اللوح ${s.code} (${s.type}) — في المخزن منذ ${daysBetween(refDate)} يوم`,
+            type: 'warning',
+          });
+        }
+      }
+    });
+  }
+
+  // 3. قيود محاسبية مفقودة للفواتير
+  if (['مدير عام', 'مدير', 'محاسب'].includes(role)) {
+    const journalEntries = DB.getAll('journal_entries');
+    const journalMain    = DB.getAll('journal');
+    DB.getAll('sales').filter(s => s.status !== 'cancelled' && s.status !== 'draft').forEach(inv => {
+      const hasEntry =
+        journalEntries.some(j => (j.ref && j.ref === inv.invoice_number) ||
+                                  (j.description && j.description.includes(inv.invoice_number))) ||
+        journalMain.some(j => j.description && j.description.includes(inv.invoice_number));
+      if (!hasEntry) {
+        newNotifs.push({
+          title: 'قيد محاسبي مفقود',
+          message: `لا يوجد قيد محاسبي للفاتورة ${inv.invoice_number}`,
+          type: 'danger',
+        });
+      }
+    });
+  }
+
+  // 4. شيكات تستحق خلال 7 أيام
+  if (['مدير عام', 'مدير', 'محاسب'].includes(role)) {
+    DB.getAll('checks').forEach(chk => {
+      if (chk.status !== 'pending' || !chk.dueDate) return;
+      const due = new Date(chk.dueDate);
+      if (!isNaN(due) && due >= today && due <= in7Days) {
+        newNotifs.push({
+          title: 'شيك يستحق قريباً',
+          message: `${chk.partyName || ''} — ${formatCurrency(chk.amount)} — ${formatDate(chk.dueDate)}`,
+          type: 'info',
+        });
+      }
+    });
+  }
+
+  // 5. عملاء لم يتم التواصل معهم أكثر من 30 يوم
+  if (['مدير عام', 'مدير', 'موظف مبيعات', 'مدير مبيعات', 'مدير قسم'].includes(role)) {
+    const crmContacts = DB.getAll('crm_contacts') || [];
+    const crmCustomers = DB.getAll('crm_customers') || [];
+    crmCustomers.forEach(c => {
+      const lastContact = crmContacts
+        .filter(item => String(item.customer_id) === String(c.id))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+      const refDate = lastContact?.date || c.created_at;
+      if (refDate && daysBetween(refDate) > 30) {
+        newNotifs.push({
+          title: 'عميل بدون تواصل',
+          message: `العميل ${c.name} — آخر تواصل منذ ${daysBetween(refDate)} يوم`,
+          type: 'warning',
+        });
+      }
+    });
+  }
+
+  // حفظ التنبيهات الجديدة (تجنب التكرار خلال 24 ساعة)
+  const existing = DB.getAll('notifications');
+  const cutoff   = new Date(today.getTime() - 24 * 3600000).toISOString();
+  let added = false;
+  newNotifs.forEach(n => {
+    const alreadyExists = existing.some(e =>
+      e.title === n.title &&
+      e.message === n.message &&
+      e.created_at > cutoff
+    );
+    if (!alreadyExists) {
+      DB.save('notifications', {
+        id:         DB.nextId('notifications'),
+        title:      n.title,
+        message:    n.message,
+        type:       n.type,
+        is_read:    false,
+        created_at: new Date().toISOString(),
+      });
+      added = true;
+    }
+  });
+
+  // تحديث عداد الإشعارات إذا أُضيف شيء جديد
+  if (added) loadNotifications();
 }
 
 function currencyDropdown(id, selectedValue = 'EGP') {

@@ -79,6 +79,9 @@
       <a class="nav-item" onclick="showPage('report-inv-movement')" data-page="report-inv-movement">
         <span class="nav-icon">🔄</span><span class="nav-label">حركة المخزون</span>
       </a>
+      <a class="nav-item" onclick="showPage('slab-tracker')" data-page="slab-tracker">
+        <span class="nav-icon">🔎</span><span class="nav-label">تتبع اللوح</span>
+      </a>
 
       <div class="nav-section-label">التصنيع</div>
       <a class="nav-item" onclick="showPage('cutting')" data-page="cutting">
@@ -181,6 +184,16 @@
         <button class="hamburger-btn" id="hamburgerBtn" aria-label="القائمة"><span></span><span></span><span></span></button>
         <h2 class="page-title" id="page-title">لوحة التحكم</h2>
       </div>
+      <!-- بحث عالمي في شريط التنقل العلوي -->
+      <div class="global-search-wrap" id="globalSearchWrap">
+        <span class="global-search-icon">🔍</span>
+        <input type="text" id="globalSearchInput"
+               placeholder="بحث في العملاء، الفواتير، الكتل..."
+               oninput="globalSearch(this.value)"
+               onblur="setTimeout(()=>closeGlobalSearch(),250)"
+               autocomplete="off">
+        <div class="global-search-results" id="globalSearchResults" style="display:none"></div>
+      </div>
       <div class="top-bar-right">
         <button class="btn-icon" id="theme-toggle" onclick="toggleDarkMode()" title="تبديل المظهر">🌙</button>
         <div class="notification-btn" onclick="showPage('notifications')">
@@ -241,6 +254,7 @@
 <script src="js/pages/crm.js"></script>
 <script src="js/pages/machines.js"></script>
 <script src="js/pages/sales-performance.js"></script>
+<script src="js/pages/slab-tracker.js"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

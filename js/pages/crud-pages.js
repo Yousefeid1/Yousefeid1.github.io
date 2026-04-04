@@ -30,7 +30,7 @@ async function renderProducts() {
           <table>
             <thead><tr>
               <th>الكود</th><th>المنتج</th><th>الفئة</th><th>الوحدة</th>
-              <th>سعر الكلفة</th><th>سعر البيع</th><th>المخزون</th><th>الحد الأدنى</th><th>الحالة</th>
+              <th class="cost-sensitive-field">سعر الكلفة</th><th>سعر البيع</th><th>المخزون</th><th>الحد الأدنى</th><th>الحالة</th>
             </tr></thead>
             <tbody id="prod-tbody">${renderProductRows(products)}</tbody>
           </table>
@@ -49,8 +49,8 @@ function renderProductRows(products) {
       <td class="number">${p.code}</td>
       <td><strong>${p.name}</strong></td>
       <td><span class="badge ${p.category === 'رخام' ? 'badge-gold' : 'badge-info'}">${p.category}</span></td>
-      <td>${p.unit}</td>
-      <td class="number">${formatMoney(p.cost)}</td>
+      <td class="number">${p.unit}</td>
+      <td class="number cost-sensitive-field">${formatMoney(p.cost)}</td>
       <td class="number">${formatMoney(p.price)}</td>
       <td class="number ${p.stock_qty <= p.min_stock ? 'text-danger' : 'text-success'}">${p.stock_qty}</td>
       <td class="number">${p.min_stock}</td>
@@ -434,6 +434,8 @@ async function renderSettings() {
         <button class="btn btn-danger" onclick="resetAllData()">⚠ إعادة تعيين جميع البيانات</button>
       </div>
 
+      <!-- النسخ الاحتياطي — للمدير والمدير العام فقط -->
+      ${(typeof currentUser !== 'undefined' && ['مدير عام','مدير'].includes(currentUser?.role || '')) ? `
       <div class="card">
         <div class="card-header"><span class="card-title">💾 النسخ الاحتياطي والاستعادة</span></div>
         <div class="settings-section" style="margin-top:8px">
@@ -492,6 +494,7 @@ async function renderSettings() {
           <div id="rateHistoryTable" style="margin-top:16px"></div>
         </div>
       </div>
+      ` : ''}
 
       <!-- ===== مؤشرات KPI المخصصة ===== -->
       <div class="card">
@@ -738,7 +741,15 @@ function restoreAutoSnapshot() {
 function updateBackupUI() {
   const last = localStorage.getItem('_lastBackup');
   const el   = document.getElementById('lastBackupDate');
-  if (el) el.textContent = last ? formatDate(last) : 'لم يتم بعد';
+  if (el) {
+    const daysSince = last ? Math.floor((new Date() - new Date(last)) / 86400000) : Infinity;
+    el.textContent = last ? formatDate(last) : 'لم يتم بعد';
+    // تحذير إذا كان آخر نسخة احتياطية > 7 أيام
+    if (daysSince > 7) {
+      el.style.color = '#e24b4a';
+      el.title = `⚠️ مرّ ${daysSince} يوم منذ آخر نسخة احتياطية — يُنصح بإجراء نسخة الآن`;
+    }
+  }
 
   let total = 0;
   for (let k in localStorage) {
