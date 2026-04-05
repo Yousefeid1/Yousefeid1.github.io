@@ -3,6 +3,18 @@
 // ============================================
 
 // ===== تشفير كلمات المرور بـ SHA-256 =====
+
+// الهاش الاحتياطي (sha256_fb) المستخدم عند عدم توافر SubtleCrypto (بيئة HTTP غير آمنة)
+// مُستخرج كدالة مساعدة مشتركة لتجنب تكرار المنطق
+function _fallbackHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return 'sha256_fb:' + Math.abs(hash).toString(36);
+}
+
 async function hashPassword(str) {
   if (!str) return '';
   // إذا كانت القيمة هاش بالفعل (تبدأ بـ sha256:) أعدها كما هي
@@ -13,13 +25,8 @@ async function hashPassword(str) {
     const hex  = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
     return 'sha256:' + hex;
   } catch (_) {
-    // fallback بسيط إذا لم يكن SubtleCrypto متاحاً (بيئة قديمة)
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) - hash) + str.charCodeAt(i);
-      hash = hash & hash;
-    }
-    return 'sha256_fb:' + Math.abs(hash).toString(36);
+    // fallback بسيط إذا لم يكن SubtleCrypto متاحاً (بيئة قديمة أو HTTP)
+    return _fallbackHash(str);
   }
 }
 
@@ -833,16 +840,33 @@ const api = {
   // ===== AUTH =====
   async login(email, password) {
     const hashedInput = await hashPassword(password);
+    // احسب الهاش الاحتياطي مباشرة باستخدام الدالة المشتركة
+    // (لمعالجة حالة عدم توافق نوع الهاش: sha256_fb مخزّن ← sha256 محسوب)
+    const fbHash = _fallbackHash(password);
     const user = DB.getAll('users').find(u => {
       if (u.email !== email) return false;
       const stored = u.password || '';
       // مقارنة الهاش المحسوب بالهاش المخزن
       if (stored.startsWith('sha256:') || stored.startsWith('sha256_fb:')) {
-        return stored === hashedInput;
+        if (stored === hashedInput) return true;
+        // معالجة حالة عدم توافق نوع الهاش:
+        // إذا كانت كلمة المرور مخزنة كـ sha256_fb وأصبح crypto.subtle متاحاً الآن،
+        // نقارن مع الهاش الاحتياطي ثم نُرحِّل إلى SHA-256 الحقيقي.
+        if (stored.startsWith('sha256_fb:') && stored === fbHash) {
+          hashPassword(password).then(h => {
+            u.password = h;
+            try { DB.save('users', u); } catch (e) { console.warn('فشل ترحيل كلمة المرور إلى SHA-256:', e.message); }
+          });
+          return true;
+        }
+        return false;
       }
       // ترحيل: المستخدم لا يزال بكلمة مرور صريحة — قارنها ثم حوّلها
       if (stored === password) {
-        hashPassword(password).then(h => { u.password = h; DB.save('users', u); });
+        hashPassword(password).then(h => {
+          u.password = h;
+          try { DB.save('users', u); } catch (e) { console.warn('فشل ترحيل كلمة المرور النصية إلى هاش:', e.message); }
+        });
         return true;
       }
       return false;

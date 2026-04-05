@@ -235,7 +235,9 @@ const RBACModule = (function () {
 
 // ===== AUTH =====
 async function doLogin() {
-  const email    = sanitize(document.getElementById('login-email').value.trim());
+  // لا تُطبَّق sanitize على البريد الإلكتروني هنا؛ فهو يُستخدم للمقارنة مع القيمة المخزنة فقط
+  // وليس لعرضه في HTML، وتشفيره سيُسبب عدم التطابق لعناوين البريد التي تحتوي على محارف خاصة.
+  const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   const errEl    = document.getElementById('login-error');
   errEl.textContent = '';
@@ -250,7 +252,10 @@ async function doLogin() {
     _resetActivityTimer();
     currentUser = data.user;
     sessionStorage.setItem('marble_user', JSON.stringify(data.user));
-    api.logActivity('login', 'auth', data.user.id, `تسجيل دخول: ${data.user.name} (${data.user.role})`);
+    // تسجيل النشاط: الخطأ هنا لا يجب أن يمنع إتمام تسجيل الدخول
+    try {
+      api.logActivity('login', 'auth', data.user.id, `تسجيل دخول: ${data.user.name} (${data.user.role})`);
+    } catch (e) { console.warn('فشل تسجيل نشاط الدخول:', e.message); }
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initApp();
