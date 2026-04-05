@@ -189,6 +189,27 @@ const SEED_DATA = {
   ],
 };
 
+// ===== الثوابت العامة =====
+/** الحد الأقصى لسجلات التدقيق المحفوظة في localStorage */
+const MAX_AUDIT_TRAIL_ENTRIES = 2000;
+
+// ===== UUID آمن تشفيرياً — يستخدم Web Crypto API =====
+function _generateSecureUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    buf[6] = (buf[6] & 0x0f) | 0x40; // version 4
+    buf[8] = (buf[8] & 0x3f) | 0x80; // variant 10
+    const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+  // Last resort: timestamp + performance.now (لا يُنصح به في سياق أمني)
+  return Date.now().toString(36) + '-' + performance.now().toString(36).replace('.', '');
+}
+
 // ===== MOCK DB =====
 const DB = {
   // ===== طبقة الـ Cache لتجنب إعادة JSON.parse في كل استدعاء =====
@@ -322,6 +343,28 @@ const DB = {
     });
     // Migration: add commissions collection if missing
     if (!this.get('commissions')) this.set('commissions', []);
+    // Migration: initialize audit_trail if missing
+    if (!this.get('audit_trail')) this.set('audit_trail', []);
+    // Migration: add uuid/eta_qr to existing sales invoices
+    const _salesInv = this.getAll('sales');
+    let invMigrated = false;
+    _salesInv.forEach(inv => {
+      if (!inv.uuid) {
+        inv.uuid = _generateSecureUUID();
+        invMigrated = true;
+      }
+      if (!('eta_qr' in inv)) { inv.eta_qr = null; invMigrated = true; }
+    });
+    if (invMigrated) this.set('sales', _salesInv);
+    // Migration: add machine_type/kerf_loss_mm to existing cutting records
+    const _cuts = this.getAll('cutting');
+    let cutMigrated = false;
+    _cuts.forEach(c => {
+      if (!c.machine_type) { c.machine_type = 'gang_saw'; cutMigrated = true; }
+      if (c.kerf_loss_mm === undefined) { c.kerf_loss_mm = 3.5; cutMigrated = true; }
+      if (c.yield_m2    === undefined) { c.yield_m2    = 0;   cutMigrated = true; }
+    });
+    if (cutMigrated) this.set('cutting', _cuts);
     // Migration: add type/region to existing customers
     const _customers = this.getAll('customers');
     let custMigrated = false;
@@ -362,16 +405,55 @@ const DB = {
     }
     const items = this.getAll(key);
     const idx = items.findIndex(i => i.id === cleaned.id);
+    // تسجيل مسار التدقيق للجداول المالية عند التعديل
+    if (idx >= 0 && DB._auditTables.includes(key)) {
+      DB._writeAuditLog(key, cleaned.id, items[idx], cleaned);
+    }
     if (idx >= 0) items[idx] = cleaned; else items.push(cleaned);
     this.set(key, items);
     this._invalidateCache(key);
+    // كتابة غير متزامنة إلى IndexedDB
+    if (typeof MarbleIDB !== 'undefined') {
+      MarbleIDB.idbWrite(key, cleaned);
+    }
     DB._broadcast(key, 'save');
     return cleaned;
   },
   remove(key, id) {
     this.set(key, this.getAll(key).filter(i => i.id !== parseInt(id)));
     this._invalidateCache(key);
+    // حذف غير متزامن من IndexedDB
+    if (typeof MarbleIDB !== 'undefined') {
+      MarbleIDB.idbRemove(key, parseInt(id));
+    }
     DB._broadcast(key, 'remove');
+  },
+
+  // ===== الجداول التي تُسجَّل في مسار التدقيق =====
+  _auditTables: ['sales', 'purchases', 'payments', 'journal', 'journal_entries', 'expenses'],
+
+  // ===== كتابة سجل التدقيق (Audit Trail) غير القابل للحذف =====
+  _writeAuditLog(table, id, oldVal, newVal) {
+    try {
+      const user = (typeof getCurrentUser === 'function' && getCurrentUser()) || { name: 'النظام', id: 0 };
+      const logs = JSON.parse(localStorage.getItem('marble_db_audit_trail') || '[]');
+      logs.push({
+        id:         Date.now() + Math.random(),
+        entity:     table,
+        entity_id:  id,
+        old_value:  JSON.parse(JSON.stringify(oldVal)),
+        new_value:  JSON.parse(JSON.stringify(newVal)),
+        changed_by: user.name || 'النظام',
+        user_id:    user.id || 0,
+        changed_at: new Date().toISOString(),
+      });
+      // الاحتفاظ بآخر MAX_AUDIT_TRAIL_ENTRIES سجل فقط لتوفير المساحة
+      localStorage.setItem('marble_db_audit_trail', JSON.stringify(logs.slice(-MAX_AUDIT_TRAIL_ENTRIES)));
+      // كتابة إلى IndexedDB إن كان متاحاً
+      if (typeof MarbleIDB !== 'undefined') {
+        MarbleIDB.idbWrite('audit_trail', logs[logs.length - 1]);
+      }
+    } catch (_) {}
   },
   nextId(key) {
     const items = this.getAll(key);

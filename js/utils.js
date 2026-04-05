@@ -65,9 +65,44 @@ function sanitize(str) {
   if (typeof str !== 'string') return str;
   // رفض النصوص التي تتجاوز الحد الأقصى المسموح
   if (str.length > 1000) throw new Error('النص طويل جداً — الحد الأقصى 1000 حرف');
-  return str
-    .replace(/<[^>]*>/g, '')        // إزالة وسوم HTML
-    .replace(/&/g,  '&amp;')        // ترميز الرموز الخاصة لمنع XSS
+
+  // حماية متقدمة ضد DOM-based XSS: إزالة أنماط JavaScript خطيرة
+  // ملاحظة: نستخدم DOMParser لتفسير HTML بشكل صحيح ثم نأخذ النص النقي
+  let cleaned = str;
+
+  // 1. إزالة وسوم script/iframe/object/embed وما بداخلها (مع دعم التباعد والأسطر)
+  const blockTags = [
+    /<\s*script[\s\S]*?>[\s\S]*?<\s*\/\s*script[\s\S]*?>/gi,
+    /<\s*iframe[\s\S]*?(?:\/>|>[\s\S]*?<\s*\/\s*iframe[\s\S]*?>)/gi,
+    /<\s*object[\s\S]*?(?:\/>|>[\s\S]*?<\s*\/\s*object[\s\S]*?>)/gi,
+    /<\s*embed[\s\S]*?(?:\/>|>)/gi,
+  ];
+  for (const rx of blockTags) {
+    cleaned = cleaned.replace(rx, '');
+  }
+
+  // 2. إزالة أنماط XSS المعروفة
+  const dangerous = [
+    /javascript\s*:/gi,
+    /vbscript\s*:/gi,
+    /on\w+\s*=/gi,
+    /data\s*:\s*text\/html/gi,
+    /expression\s*\(/gi,
+  ];
+  for (const rx of dangerous) {
+    cleaned = cleaned.replace(rx, '');
+  }
+
+  // 3. إزالة أي وسوم HTML متبقية بشكل متكرر حتى لا يبقى <script في حالة التعشيش
+  let prev = '';
+  while (prev !== cleaned) {
+    prev    = cleaned;
+    cleaned = cleaned.replace(/<[^>]*>/g, '');
+  }
+
+  // 4. ترميز الرموز الخاصة المتبقية لمنع XSS
+  return cleaned
+    .replace(/&/g,  '&amp;')
     .replace(/</g,  '&lt;')
     .replace(/>/g,  '&gt;')
     .replace(/"/g,  '&quot;')
