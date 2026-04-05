@@ -153,7 +153,16 @@
   // ===== تحويل Base64 إلى Blob (توفير ~33% ذاكرة) =====
   function base64ToBlob(base64, mimeType) {
     mimeType = mimeType || 'image/jpeg';
-    const byteStr = atob(base64.split(',')[1] || base64);
+    // التحقق من أن القيمة تحتوي على data URL صحيح قبل فك التشفير
+    let base64Data = base64;
+    if (base64.includes(',')) {
+      const parts = base64.split(',');
+      if (parts.length < 2 || !parts[1]) {
+        throw new Error('تنسيق Base64 غير صالح');
+      }
+      base64Data = parts[1];
+    }
+    const byteStr = atob(base64Data);
     const arr = new Uint8Array(byteStr.length);
     for (let i = 0; i < byteStr.length; i++) {
       arr[i] = byteStr.charCodeAt(i);
@@ -197,15 +206,22 @@
     } catch (_) {}
   }
 
-  // ===== UUID مساعد =====
+  // ===== UUID مساعد — يستخدم crypto.getRandomValues() للأمان =====
   function _generateUUID() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
       return crypto.randomUUID();
     }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-      const r = (Math.random() * 16) | 0;
-      return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-    });
+    // Fallback: crypto.getRandomValues للحصول على عشوائية آمنة تشفيرياً
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      buf[6] = (buf[6] & 0x0f) | 0x40; // version 4
+      buf[8] = (buf[8] & 0x3f) | 0x80; // variant 10
+      const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+      return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+    }
+    // Last resort: timestamp-based (not cryptographically secure but functional)
+    return Date.now().toString(36) + '-' + performance.now().toString(36).replace('.', '');
   }
 
   // ===== كتابة غير متزامنة إلى IndexedDB من DB.save =====

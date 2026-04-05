@@ -189,6 +189,27 @@ const SEED_DATA = {
   ],
 };
 
+// ===== الثوابت العامة =====
+/** الحد الأقصى لسجلات التدقيق المحفوظة في localStorage */
+const MAX_AUDIT_TRAIL_ENTRIES = 2000;
+
+// ===== UUID آمن تشفيرياً — يستخدم Web Crypto API =====
+function _generateSecureUUID() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    buf[6] = (buf[6] & 0x0f) | 0x40; // version 4
+    buf[8] = (buf[8] & 0x3f) | 0x80; // variant 10
+    const hex = Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+  // Last resort: timestamp + performance.now (لا يُنصح به في سياق أمني)
+  return Date.now().toString(36) + '-' + performance.now().toString(36).replace('.', '');
+}
+
 // ===== MOCK DB =====
 const DB = {
   // ===== طبقة الـ Cache لتجنب إعادة JSON.parse في كل استدعاء =====
@@ -329,9 +350,7 @@ const DB = {
     let invMigrated = false;
     _salesInv.forEach(inv => {
       if (!inv.uuid) {
-        inv.uuid = (typeof MarbleIDB !== 'undefined')
-          ? MarbleIDB.generateUUID()
-          : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+        inv.uuid = _generateSecureUUID();
         invMigrated = true;
       }
       if (!('eta_qr' in inv)) { inv.eta_qr = null; invMigrated = true; }
@@ -428,8 +447,8 @@ const DB = {
         user_id:    user.id || 0,
         changed_at: new Date().toISOString(),
       });
-      // الاحتفاظ بآخر 2000 سجل فقط لتوفير المساحة
-      localStorage.setItem('marble_db_audit_trail', JSON.stringify(logs.slice(-2000)));
+      // الاحتفاظ بآخر MAX_AUDIT_TRAIL_ENTRIES سجل فقط لتوفير المساحة
+      localStorage.setItem('marble_db_audit_trail', JSON.stringify(logs.slice(-MAX_AUDIT_TRAIL_ENTRIES)));
       // كتابة إلى IndexedDB إن كان متاحاً
       if (typeof MarbleIDB !== 'undefined') {
         MarbleIDB.idbWrite('audit_trail', logs[logs.length - 1]);

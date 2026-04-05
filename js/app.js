@@ -573,7 +573,6 @@ function _scheduleRefresh() {
         'report-pl': renderReportPL, 'report-bs': renderReportBS, 'report-waste': renderReportWaste,
         'report-inventory': renderReportInventory,
         'inventory-valuation': renderInventoryValuation,
-    'inventory-valuation': renderInventoryValuation,
         'report-cashflow': renderReportCashFlow, 'report-cost-per-meter': renderReportCostPerMeter,
         'report-export-profit': renderReportExportProfit, 'report-inv-movement': renderReportInventoryMovement,
         'report-customer-credit': renderReportCustomerCredit,

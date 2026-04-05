@@ -26,6 +26,10 @@ function getDashboardSections(role) {
   return sections[role] || ['kpis', 'alerts'];
 }
 
+// ===== الثوابت =====
+/** عدد دفعات النشر المعروضة في مخطط الهالك */
+const WASTE_CHART_MAX_SHIFTS = 12;
+
 // ===== حساب معدل دوران المخزون شهرياً =====
 /**
  * _calcInventoryTurnoverData()
@@ -696,7 +700,7 @@ async function renderDashboard() {
     // Waste Rate Per Shift Chart — نسبة الهالك لكل وردية (دفعة نشر)
     const wasteShiftCtx = document.getElementById('waste-per-shift-chart')?.getContext('2d');
     if (wasteShiftCtx) {
-      const cuts   = DB.getAll('cutting').slice(-12).sort((a, b) => new Date(a.date) - new Date(b.date));
+      const cuts   = DB.getAll('cutting').slice(-WASTE_CHART_MAX_SHIFTS).sort((a, b) => new Date(a.date) - new Date(b.date));
       const wLabels = cuts.map(c => c.batch_number || formatDate(c.date));
       const wVals   = cuts.map(c => parseFloat((c.waste_percentage || 0).toFixed(1)));
       _registerChart('dashboard-waste-shift', new Chart(wasteShiftCtx, {

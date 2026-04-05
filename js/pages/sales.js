@@ -399,7 +399,7 @@ async function saveSale() {
     salesperson_id:   spId,
     salesperson_name: spName,
     // ETA e-invoice fields
-    uuid: (typeof MarbleIDB !== 'undefined') ? MarbleIDB.generateUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)),
+    uuid: (typeof MarbleIDB !== 'undefined') ? MarbleIDB.generateUUID() : _generateSecureUUID(),
     eta_qr: null,
     items, subtotal, tax, total_amount: subtotal + tax, paid_amount: 0,
   });

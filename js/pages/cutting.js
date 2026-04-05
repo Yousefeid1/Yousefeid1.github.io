@@ -173,6 +173,10 @@ async function renderCutting() {
   }
 }
 
+// ===== ثوابت الهالك للماكينات (Kerf Loss Constants) =====
+const KERF_GANG_SAW   = 3.5; // ملم — منشار حزمة
+const KERF_MULTI_WIRE = 0.5; // ملم — سلك متعدد
+
 // ===== حساب إنتاجية النشر (Yield) بناءً على نوع الماكينة والهالك =====
 /**
  * calcCuttingYield({ L, W, H, thickness, machineType })
@@ -180,7 +184,7 @@ async function renderCutting() {
  * Kerf: 3.5mm لـ Gang Saw، 0.5mm لـ Multi-Wire
  */
 function calcCuttingYield({ L, W, H, thickness, machineType }) {
-  const kerf = machineType === 'multi_wire' ? 0.5 : 3.5;
+  const kerf = machineType === 'multi_wire' ? KERF_MULTI_WIRE : KERF_GANG_SAW;
   if (!thickness || thickness <= 0) return 0;
   return (L * W * H) / (parseFloat(thickness) + kerf);
 }
@@ -197,7 +201,7 @@ function _updateCuttingYield() {
   const W = (blk.width  || 0) / 100;
   const H = (blk.height || 0) / 100;
   const yieldM2 = calcCuttingYield({ L, W, H, thickness: thick / 100, machineType: mType });
-  const kerf    = mType === 'multi_wire' ? 0.5 : 3.5;
+  const kerf    = mType === 'multi_wire' ? KERF_MULTI_WIRE : KERF_GANG_SAW;
   const el = document.getElementById('nc-yield-display');
   if (el) el.innerHTML =
     `<span style="color:var(--accent)">⚙ الإنتاجية المتوقعة: <strong>${yieldM2.toFixed(1)} م²</strong></span>` +
@@ -257,7 +261,7 @@ async function saveCutting() {
   const gradeC      = parseInt(document.getElementById('nc-grade-c').value) || 0;
   const machineType = document.getElementById('nc-machine-type')?.value || 'gang_saw';
   const thicknessMm = parseFloat(document.getElementById('nc-thickness')?.value) || 20;
-  const kerfMm      = machineType === 'multi_wire' ? 0.5 : 3.5;
+  const kerfMm      = machineType === 'multi_wire' ? KERF_MULTI_WIRE : KERF_GANG_SAW;
   const blockId     = parseInt(blockEl.value);
   const blockCode   = blockEl.options[blockEl.selectedIndex].dataset.code;
   const blockType   = blockEl.options[blockEl.selectedIndex].dataset.type;
