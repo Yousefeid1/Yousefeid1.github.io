@@ -254,7 +254,7 @@ async function viewSaleDetail(id) {
   `);
   // تحميل QR إذا كان محفوظاً مسبقاً
   if (s.eta_qr) {
-    setTimeout(() => { _renderETAQRFromData(s.id, s.eta_qr); }, 100);
+    setTimeout(() => { _renderETAQRFromData(s.id, s.eta_qr); }, QR_SHOW_DELAY_MS);
   }
 }
 
@@ -989,6 +989,11 @@ function printQuotationPDF(id) {
 // ===== ETA e-Invoice — توليد QR Code للفاتورة الإلكترونية =====
 // ============================================================
 
+/** التأخير بالميلي ثانية لانتظار رسم QR قبل التقاط صورته */
+const QR_RENDER_DELAY_MS = 300;
+/** التأخير بالميلي ثانية لعرض QR محفوظ مسبقاً بعد رسم الـ DOM */
+const QR_SHOW_DELAY_MS   = 100;
+
 /**
  * _generateETAQR(invoiceId)
  * يولّد QR Code يحمل بيانات الفاتورة بتنسيق JSON وفق معايير GS1/ETA
@@ -1034,7 +1039,7 @@ function _generateETAQR(invoiceId) {
         DB.save('sales', inv);
         toast('✅ تم توليد QR Code وحفظه في الفاتورة', 'success');
       }
-    }, 300);
+    }, QR_RENDER_DELAY_MS);
   } else {
     container.innerHTML = `<code style="font-size:10px;direction:ltr;word-break:break-all;max-width:200px;display:block">${etaPayload}</code>`;
   }

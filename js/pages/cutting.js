@@ -200,7 +200,7 @@ function _updateCuttingYield() {
   const L = (blk.length || 0) / 100;  // سم → متر
   const W = (blk.width  || 0) / 100;
   const H = (blk.height || 0) / 100;
-  const yieldM2 = calcCuttingYield({ L, W, H, thickness: thick / 100, machineType: mType });
+  const yieldM2 = calcCuttingYield({ L, W, H, thickness: thick / 1000, machineType: mType }); // مم → متر
   const kerf    = mType === 'multi_wire' ? KERF_MULTI_WIRE : KERF_GANG_SAW;
   const el = document.getElementById('nc-yield-display');
   if (el) el.innerHTML =

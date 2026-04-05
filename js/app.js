@@ -191,8 +191,17 @@ function confirmDelete(message = 'هل أنت متأكد من الحذف؟ لا 
 const RBACModule = (function () {
   'use strict';
 
+  // دالة مساعدة للتجميد العميق (Deep Freeze) لمنع تعديل المصفوفات الداخلية
+  function deepFreeze(obj) {
+    Object.getOwnPropertyNames(obj).forEach(name => {
+      const val = obj[name];
+      if (val && typeof val === 'object') deepFreeze(val);
+    });
+    return Object.freeze(obj);
+  }
+
   // متغيرات الصلاحيات خاصة ولا يمكن الوصول إليها من الـ Console
-  const _ROLE_PAGES = Object.freeze({
+  const _ROLE_PAGES = deepFreeze({
     'مدير عام':        null, // null = all pages visible
     'مدير':            null,
     'محاسب':           ['dashboard', 'journal', 'accounts', 'trial-balance', 'payments', 'expenses', 'report-pl', 'report-bs', 'report-waste', 'report-inventory', 'cost-centers', 'checks', 'year-closing', 'recurring-entries', 'audit-trail', 'settings', 'notifications'],

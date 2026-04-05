@@ -989,8 +989,7 @@ function renderAuditTrail() {
                   <td>${log.changed_by || '—'}</td>
                   <td>
                     <button class="btn btn-secondary btn-sm"
-                            onclick="showAuditDiff(${JSON.stringify(log.id).replace(/"/g,"'")})"
-                            data-id="${log.id}">
+                            data-audit-id="${encodeURIComponent(String(log.id))}">
                       عرض التغييرات
                     </button>
                   </td>
@@ -1005,6 +1004,18 @@ function renderAuditTrail() {
       </div>`}
   `;
   window._auditLogs = sorted;
+
+  // استخدام مستمع أحداث مُفوَّض بدلاً من onclick المضمّن لتجنب XSS
+  setTimeout(() => {
+    const tbody = document.getElementById('audit-tbody');
+    if (!tbody) return;
+    tbody.addEventListener('click', function (e) {
+      const btn = e.target.closest('[data-audit-id]');
+      if (!btn) return;
+      const logId = decodeURIComponent(btn.dataset.auditId);
+      showAuditDiff(logId);
+    });
+  }, 0);
 }
 
 function filterAuditTrail() {
