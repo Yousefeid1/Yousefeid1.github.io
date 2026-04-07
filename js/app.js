@@ -244,17 +244,39 @@ async function doLogin() {
 
   try {
     LOGIN_RATE_LIMIT.checkAndRecord();
-    const data = await api.login(email, password);
+    const hashedInput = await hashPassword(password);
+    const fbHash = _fallbackHash(password);
+    const _user = DB.getAll('users').find(u => {
+      if (u.email !== email) return false;
+      const stored = u.password || '';
+      if (stored.startsWith('sha256:') || stored.startsWith('sha256_fb:')) {
+        if (stored === hashedInput) return true;
+        if (stored.startsWith('sha256_fb:') && stored === fbHash) {
+          hashPassword(password).then(h => { u.password = h; try { DB.save('users', u); } catch (_) {} });
+          return true;
+        }
+        return false;
+      }
+      if (stored === password) {
+        hashPassword(password).then(h => { u.password = h; try { DB.save('users', u); } catch (_) {} });
+        return true;
+      }
+      return false;
+    });
+    if (!_user) throw new Error('بريد إلكتروني أو كلمة مرور غير صحيحة');
+    if (_user.active === false) throw new Error('تم إيقاف هذا الحساب. تواصل مع المدير.');
+    if (_user.work_status === 'terminated') throw new Error('تم فصل هذا الموظف. تواصل مع المدير.');
+    if (_user.work_status === 'resigned') throw new Error('لقد قدّم هذا الموظف استقالته. تواصل مع المدير.');
+    const data = { token: 'mock_token_' + Date.now(), user: { id: _user.id, name: _user.name, role: _user.role, email: _user.email }, must_change_password: !!_user.must_change_password };
     LOGIN_RATE_LIMIT.reset();
     // حفظ التوكن بشكل مشفر وتسجيل وقت آخر نشاط
-    api.token = data.token;
     saveToken(data.token);
     _resetActivityTimer();
     currentUser = data.user;
     sessionStorage.setItem('marble_user', JSON.stringify(data.user));
     // تسجيل النشاط: الخطأ هنا لا يجب أن يمنع إتمام تسجيل الدخول
     try {
-      api.logActivity('login', 'auth', data.user.id, `تسجيل دخول: ${data.user.name} (${data.user.role})`);
+      logActivity('login', 'auth', data.user.id, `تسجيل دخول: ${data.user.name} (${data.user.role})`);
     } catch (e) { console.warn('فشل تسجيل نشاط الدخول:', e.message); }
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
@@ -268,7 +290,7 @@ async function doLogin() {
 }
 
 function doLogout() {
-  api.clearToken();
+  sessionStorage.removeItem('marble_token'); sessionStorage.removeItem('marble_user'); sessionStorage.removeItem('_xt'); localStorage.removeItem('marble_token'); localStorage.removeItem('marble_user');
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -287,7 +309,7 @@ async function initApp() {
   
   // Load settings
   try {
-    const s = await api.settings();
+    const s = DB.get('settings') || SEED_DATA.settings;
     if (s.company_name) document.getElementById('company-name-sidebar').textContent = s.company_name;
   } catch(e) {}
 
